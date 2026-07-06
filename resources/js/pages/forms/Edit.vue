@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import FieldEditor from '@/components/builder/FieldEditor.vue';
+import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -61,6 +62,7 @@ const sections = reactive<FormSectionData[]>(JSON.parse(JSON.stringify(props.for
 const structureDirty = ref(false);
 const savingStructure = ref(false);
 const syncing = ref(false);
+const structureError = ref<string | null>(null);
 
 const markDirty = () => {
     if (!syncing.value) {
@@ -120,6 +122,7 @@ const removeSection = (index: number) => {
 
 const saveStructure = () => {
     savingStructure.value = true;
+    structureError.value = null;
 
     router.put(
         route('forms.structure.update', props.form.id),
@@ -131,6 +134,9 @@ const saveStructure = () => {
                 // fields instead of recreating them.
                 resyncSections((page.props.form as FormData).sections);
                 structureDirty.value = false;
+            },
+            onError: (errors) => {
+                structureError.value = Object.values(errors)[0] ?? trans('An error occurred while saving.');
             },
             onFinish: () => (savingStructure.value = false),
         },
@@ -184,18 +190,35 @@ const saveSettings = () => {
 /* ------------------------------------------------------------------ */
 
 const logoInput = ref<HTMLInputElement | null>(null);
+const logoError = ref<string | null>(null);
 
 const uploadLogo = (event: Event) => {
-    const file = (event.target as HTMLInputElement).files?.[0];
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
 
     if (!file) {
         return;
     }
 
-    router.post(route('forms.logo.upload', props.form.id), { logo: file }, { preserveScroll: true, forceFormData: true });
+    logoError.value = null;
+
+    router.post(
+        route('forms.logo.upload', props.form.id),
+        { logo: file },
+        {
+            preserveScroll: true,
+            forceFormData: true,
+            onError: (errors) => {
+                logoError.value = errors.logo ?? trans('An error occurred while saving.');
+            },
+            onFinish: () => (input.value = ''),
+        },
+    );
 };
 
 const removeLogo = () => {
+    logoError.value = null;
+
     router.delete(route('forms.logo.delete', props.form.id), { preserveScroll: true });
 };
 
@@ -269,6 +292,8 @@ const statusLabel = computed(() => {
                 </div>
             </div>
 
+            <p v-if="structureError" class="text-sm text-red-600">{{ structureError }}</p>
+
             <!-- Header card: logo + title + description -->
             <Card>
                 <CardContent class="flex flex-col gap-4 pt-6">
@@ -288,12 +313,14 @@ const statusLabel = computed(() => {
                             </div>
                             <p class="text-xs text-muted-foreground">{{ $t('PNG, JPG, SVG or WebP — max 2 MB.') }}</p>
                             <input ref="logoInput" type="file" accept=".png,.jpg,.jpeg,.webp,.svg" class="hidden" @change="uploadLogo" />
+                            <InputError :message="logoError" />
                         </div>
                     </div>
 
                     <div class="grid gap-2">
                         <Label for="form-title">{{ $t('Title') }}</Label>
                         <Input id="form-title" v-model="settingsForm.title" class="text-lg font-semibold" @change="saveSettings" />
+                        <InputError :message="settingsForm.errors.title" />
                     </div>
 
                     <div class="grid gap-2">
@@ -306,6 +333,7 @@ const statusLabel = computed(() => {
                             :placeholder="$t('Shown at the top of the public form')"
                             @change="saveSettings"
                         ></textarea>
+                        <InputError :message="settingsForm.errors.description" />
                     </div>
                 </CardContent>
             </Card>
@@ -427,7 +455,7 @@ const statusLabel = computed(() => {
                         <p class="text-xs text-muted-foreground">
                             {{ $t('Lowercase letters, numbers and hyphens only. Changing this breaks previously shared links.') }}
                         </p>
-                        <p v-if="settingsForm.errors.slug" class="text-sm text-red-600">{{ settingsForm.errors.slug }}</p>
+                        <InputError :message="settingsForm.errors.slug" />
                     </div>
 
                     <div class="grid gap-2">
@@ -440,6 +468,7 @@ const statusLabel = computed(() => {
                             />
                             <span class="text-sm text-muted-foreground">{{ settingsForm.primary_color }}</span>
                         </div>
+                        <InputError :message="settingsForm.errors.primary_color" />
                     </div>
 
                     <div class="flex items-start gap-2">
@@ -469,10 +498,12 @@ const statusLabel = computed(() => {
                                 min="1"
                                 :placeholder="$t('Unlimited')"
                             />
+                            <InputError :message="settingsForm.errors.max_responses" />
                         </div>
                         <div class="grid gap-2">
                             <Label for="expires-at">{{ $t('Closes on') }}</Label>
                             <Input id="expires-at" v-model="settingsForm.expires_at" type="datetime-local" />
+                            <InputError :message="settingsForm.errors.expires_at" />
                         </div>
                     </div>
 
@@ -493,6 +524,7 @@ const statusLabel = computed(() => {
                                 })
                             }}
                         </p>
+                        <InputError :message="settingsForm.errors.retention_days" />
                     </div>
 
                     <div class="grid gap-2">
@@ -504,6 +536,7 @@ const statusLabel = computed(() => {
                             class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                             :placeholder="$t('Shown after a response is submitted')"
                         ></textarea>
+                        <InputError :message="settingsForm.errors.success_message" />
                     </div>
                 </div>
 

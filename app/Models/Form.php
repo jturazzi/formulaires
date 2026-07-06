@@ -24,6 +24,7 @@ class Form extends Model
     protected $fillable = [
         'title',
         'slug',
+        'logo_path',
         'description',
         'primary_color',
         'require_email_verification',

@@ -148,6 +148,40 @@ test('the slug must only contain lowercase letters, numbers and hyphens', functi
     }
 });
 
+test('a logo upload is persisted on the form and shown in its public url', function () {
+    Illuminate\Support\Facades\Storage::fake('public');
+
+    $user = User::factory()->create();
+    $form = Form::factory()->for($user)->create();
+
+    $this->actingAs($user)->post(route('forms.logo.upload', $form), [
+        'logo' => Illuminate\Http\UploadedFile::fake()->image('logo.png'),
+    ])->assertRedirect();
+
+    $form->refresh();
+
+    expect($form->logo_path)->not->toBeNull();
+    Illuminate\Support\Facades\Storage::disk('public')->assertExists($form->logo_path);
+});
+
+test('removing a logo clears it from the form and disk', function () {
+    Illuminate\Support\Facades\Storage::fake('public');
+
+    $user = User::factory()->create();
+    $form = Form::factory()->for($user)->create();
+
+    $this->actingAs($user)->post(route('forms.logo.upload', $form), [
+        'logo' => Illuminate\Http\UploadedFile::fake()->image('logo.png'),
+    ]);
+
+    $path = $form->fresh()->logo_path;
+
+    $this->actingAs($user)->delete(route('forms.logo.delete', $form))->assertRedirect();
+
+    expect($form->fresh()->logo_path)->toBeNull();
+    Illuminate\Support\Facades\Storage::disk('public')->assertMissing($path);
+});
+
 test('duplicating a form copies its structure as a draft', function () {
     $user = User::factory()->create();
     $form = Form::factory()->for($user)->published()->create();

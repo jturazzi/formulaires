@@ -19,7 +19,7 @@ class AuthenticatedSessionController extends Controller
     public function create(Request $request): Response
     {
         return Inertia::render('auth/Login', [
-            'canResetPassword' => Route::has('password.request'),
+            'canResetPassword' => Route::has('password.request') && ! config('services.microsoft.client_id'),
             'status' => $request->session()->get('status'),
         ]);
     }
@@ -29,6 +29,8 @@ class AuthenticatedSessionController extends Controller
      */
     public function store(LoginRequest $request): RedirectResponse
     {
+        abort_if(config('services.microsoft.client_id'), 404);
+
         $request->authenticate();
 
         $request->session()->regenerate();

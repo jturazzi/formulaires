@@ -68,3 +68,14 @@ test('an error returned by Microsoft redirects to login with a visible message',
     expect(User::count())->toBe(0);
     $this->assertGuest();
 });
+
+test('password login, registration and password reset are disabled once SSO is configured', function () {
+    config(['services.microsoft.client_id' => 'fake-client-id']);
+
+    $this->get('/login')->assertOk();
+    $this->post('/login', ['email' => 'a@b.com', 'password' => 'whatever'])->assertNotFound();
+    $this->get('/register')->assertNotFound();
+    $this->post('/register')->assertNotFound();
+    $this->get('/forgot-password')->assertNotFound();
+    $this->post('/forgot-password')->assertNotFound();
+});

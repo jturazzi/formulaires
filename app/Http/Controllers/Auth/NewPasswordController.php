@@ -21,6 +21,8 @@ class NewPasswordController extends Controller
      */
     public function create(Request $request): Response
     {
+        abort_if(config('services.microsoft.client_id'), 404);
+
         return Inertia::render('auth/ResetPassword', [
             'email' => $request->email,
             'token' => $request->route('token'),
@@ -34,6 +36,8 @@ class NewPasswordController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        abort_if(config('services.microsoft.client_id'), 404);
+
         $request->validate([
             'token' => 'required',
             'email' => 'required|email',

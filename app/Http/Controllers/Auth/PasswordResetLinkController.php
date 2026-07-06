@@ -17,6 +17,8 @@ class PasswordResetLinkController extends Controller
      */
     public function create(Request $request): Response
     {
+        abort_if(config('services.microsoft.client_id'), 404);
+
         return Inertia::render('auth/ForgotPassword', [
             'status' => $request->session()->get('status'),
         ]);
@@ -29,6 +31,8 @@ class PasswordResetLinkController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        abort_if(config('services.microsoft.client_id'), 404);
+
         $request->validate([
             'email' => 'required|email',
         ]);
