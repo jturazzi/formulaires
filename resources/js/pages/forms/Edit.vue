@@ -1,0 +1,487 @@
+<script setup lang="ts">
+import FieldEditor from '@/components/builder/FieldEditor.vue';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import AppLayout from '@/layouts/AppLayout.vue';
+import { type BreadcrumbItem, type FieldType, type FormData, type FormSectionData } from '@/types';
+import { Head, router, useForm } from '@inertiajs/vue3';
+import { trans } from 'laravel-vue-i18n';
+import {
+    AlignLeft,
+    Calendar,
+    CheckSquare,
+    ChevronDown,
+    CircleDot,
+    ExternalLink,
+    FileUp,
+    Hash,
+    ImageIcon,
+    LinkIcon,
+    ListPlus,
+    Mail,
+    Plus,
+    Save,
+    Settings2,
+    TextCursorInput,
+    Type,
+} from 'lucide-vue-next';
+import { computed, nextTick, reactive, ref, watch } from 'vue';
+import draggable from 'vuedraggable';
+
+const props = defineProps<{
+    form: FormData;
+    fieldTypes: FieldType[];
+    defaultRetentionDays: number;
+    maxUploadKb: number;
+}>();
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: trans('Forms'), href: '/forms' },
+    { title: props.form.title, href: route('forms.edit', props.form.id) },
+];
+
+/* ------------------------------------------------------------------ */
+/* Structure (sections + fields)                                       */
+/* ------------------------------------------------------------------ */
+
+const sections = reactive<FormSectionData[]>(JSON.parse(JSON.stringify(props.form.sections)));
+
+const structureDirty = ref(false);
+const savingStructure = ref(false);
+const syncing = ref(false);
+
+const markDirty = () => {
+    if (!syncing.value) {
+        structureDirty.value = true;
+    }
+};
+
+// Any edit inside the tree (labels, options, order…) marks the structure dirty.
+watch(sections, markDirty, { deep: true });
+
+const resyncSections = async (fresh: FormSectionData[]) => {
+    syncing.value = true;
+    sections.splice(0, sections.length, ...(JSON.parse(JSON.stringify(fresh)) as FormSectionData[]));
+    await nextTick();
+    syncing.value = false;
+};
+
+const fieldPalette: { type: FieldType; label: string; icon: typeof Type }[] = [
+    { type: 'text', label: 'Short text', icon: TextCursorInput },
+    { type: 'textarea', label: 'Long text', icon: AlignLeft },
+    { type: 'email', label: 'Email', icon: Mail },
+    { type: 'number', label: 'Number', icon: Hash },
+    { type: 'date', label: 'Date', icon: Calendar },
+    { type: 'choice', label: 'Single choice', icon: CircleDot },
+    { type: 'checkboxes', label: 'Multiple choice', icon: CheckSquare },
+    { type: 'dropdown', label: 'Dropdown', icon: ChevronDown },
+    { type: 'file', label: 'File upload', icon: FileUp },
+    { type: 'info', label: 'Text block', icon: Type },
+];
+
+const addField = (section: FormSectionData, type: FieldType) => {
+    section.fields.push({
+        id: null,
+        type,
+        label: '',
+        description: null,
+        required: false,
+        options: ['choice', 'checkboxes', 'dropdown'].includes(type) ? { choices: [trans('Option') + ' 1'] } : null,
+    });
+    markDirty();
+};
+
+const removeField = (section: FormSectionData, index: number) => {
+    section.fields.splice(index, 1);
+    markDirty();
+};
+
+const addSection = () => {
+    sections.push({ id: null, title: '', description: null, fields: [] });
+    markDirty();
+};
+
+const removeSection = (index: number) => {
+    sections.splice(index, 1);
+    markDirty();
+};
+
+const saveStructure = () => {
+    savingStructure.value = true;
+
+    router.put(
+        route('forms.structure.update', props.form.id),
+        { sections: sections as unknown as Record<string, unknown>[] },
+        {
+            preserveScroll: true,
+            onSuccess: (page) => {
+                // Pick up the ids assigned by the server so the next save updates
+                // fields instead of recreating them.
+                resyncSections((page.props.form as FormData).sections);
+                structureDirty.value = false;
+            },
+            onFinish: () => (savingStructure.value = false),
+        },
+    );
+};
+
+/* ------------------------------------------------------------------ */
+/* Form settings                                                       */
+/* ------------------------------------------------------------------ */
+
+const settingsOpen = ref(false);
+
+const settingsForm = useForm({
+    title: props.form.title,
+    description: props.form.description ?? '',
+    primary_color: props.form.primary_color ?? '#2563eb',
+    require_email_verification: props.form.require_email_verification,
+    notify_on_response: props.form.notify_on_response,
+    max_responses: props.form.max_responses,
+    expires_at: props.form.expires_at ?? '',
+    retention_days: props.form.retention_days,
+    success_message: props.form.success_message ?? '',
+});
+
+const saveSettings = () => {
+    settingsForm
+        .transform((data) => ({
+            ...data,
+            expires_at: data.expires_at || null,
+            description: data.description || null,
+            success_message: data.success_message || null,
+        }))
+        .put(route('forms.update', props.form.id), {
+            preserveScroll: true,
+            onSuccess: () => (settingsOpen.value = false),
+        });
+};
+
+/* ------------------------------------------------------------------ */
+/* Logo                                                                */
+/* ------------------------------------------------------------------ */
+
+const logoInput = ref<HTMLInputElement | null>(null);
+
+const uploadLogo = (event: Event) => {
+    const file = (event.target as HTMLInputElement).files?.[0];
+
+    if (!file) {
+        return;
+    }
+
+    router.post(route('forms.logo.upload', props.form.id), { logo: file }, { preserveScroll: true, forceFormData: true });
+};
+
+const removeLogo = () => {
+    router.delete(route('forms.logo.delete', props.form.id), { preserveScroll: true });
+};
+
+/* ------------------------------------------------------------------ */
+/* Status                                                              */
+/* ------------------------------------------------------------------ */
+
+const setStatus = (status: 'draft' | 'published' | 'closed') => {
+    router.post(route('forms.status.update', props.form.id), { status }, { preserveScroll: true });
+};
+
+const copyPublicLink = async () => {
+    await navigator.clipboard.writeText(props.form.public_url);
+};
+
+const statusLabel = computed(() => {
+    return {
+        draft: trans('Draft'),
+        published: trans('Published'),
+        closed: trans('Closed'),
+    }[props.form.status];
+});
+</script>
+
+<template>
+    <Head :title="form.title" />
+
+    <AppLayout :breadcrumbs="breadcrumbs">
+        <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
+            <!-- Toolbar -->
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <span
+                        class="rounded-full px-2.5 py-0.5 text-xs font-medium"
+                        :class="{
+                            'bg-muted text-muted-foreground': form.status === 'draft',
+                            'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300': form.status === 'published',
+                            'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300': form.status === 'closed',
+                        }"
+                    >
+                        {{ statusLabel }}
+                    </span>
+                    <span class="text-sm text-muted-foreground">{{ form.responses_count }} {{ $t('response(s)') }}</span>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                    <Button variant="outline" size="sm" @click="settingsOpen = true">
+                        <Settings2 class="mr-1 h-4 w-4" />
+                        {{ $t('Settings') }}
+                    </Button>
+
+                    <template v-if="form.status === 'published'">
+                        <Button variant="outline" size="sm" @click="copyPublicLink">
+                            <LinkIcon class="mr-1 h-4 w-4" />
+                            {{ $t('Copy public link') }}
+                        </Button>
+                        <Button variant="outline" size="sm" as-child>
+                            <a :href="form.public_url" target="_blank">
+                                <ExternalLink class="mr-1 h-4 w-4" />
+                                {{ $t('Preview') }}
+                            </a>
+                        </Button>
+                        <Button variant="outline" size="sm" @click="setStatus('closed')">{{ $t('Close form') }}</Button>
+                    </template>
+                    <Button v-else size="sm" variant="secondary" @click="setStatus('published')">{{ $t('Publish') }}</Button>
+
+                    <Button size="sm" :disabled="!structureDirty || savingStructure" @click="saveStructure">
+                        <Save class="mr-1 h-4 w-4" />
+                        {{ structureDirty ? $t('Save') : $t('Saved') }}
+                    </Button>
+                </div>
+            </div>
+
+            <!-- Header card: logo + title + description -->
+            <Card>
+                <CardContent class="flex flex-col gap-4 pt-6">
+                    <div class="flex items-center gap-4">
+                        <div class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted/40">
+                            <img v-if="form.logo_url" :src="form.logo_url" alt="Logo" class="h-full w-full object-contain" />
+                            <ImageIcon v-else class="h-6 w-6 text-muted-foreground" />
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <div class="flex gap-2">
+                                <Button variant="outline" size="sm" @click="logoInput?.click()">
+                                    {{ form.logo_url ? $t('Change logo') : $t('Add logo') }}
+                                </Button>
+                                <Button v-if="form.logo_url" variant="ghost" size="sm" class="text-red-600" @click="removeLogo">
+                                    {{ $t('Remove') }}
+                                </Button>
+                            </div>
+                            <p class="text-xs text-muted-foreground">{{ $t('PNG, JPG, SVG or WebP — max 2 MB.') }}</p>
+                            <input ref="logoInput" type="file" accept=".png,.jpg,.jpeg,.webp,.svg" class="hidden" @change="uploadLogo" />
+                        </div>
+                    </div>
+
+                    <div class="grid gap-2">
+                        <Label for="form-title">{{ $t('Title') }}</Label>
+                        <Input id="form-title" v-model="settingsForm.title" class="text-lg font-semibold" @change="saveSettings" />
+                    </div>
+
+                    <div class="grid gap-2">
+                        <Label for="form-description">{{ $t('Description (optional)') }}</Label>
+                        <textarea
+                            id="form-description"
+                            v-model="settingsForm.description"
+                            rows="2"
+                            class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            :placeholder="$t('Shown at the top of the public form')"
+                            @change="saveSettings"
+                        ></textarea>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <!-- Sections -->
+            <draggable :list="sections" item-key="id" handle=".section-drag-handle" class="flex flex-col gap-6" @end="markDirty">
+                <template #item="{ element: section, index: sectionIndex }">
+                    <Card>
+                        <CardHeader class="flex flex-row items-start gap-3 space-y-0">
+                            <button
+                                type="button"
+                                class="section-drag-handle mt-2.5 cursor-grab text-muted-foreground hover:text-foreground"
+                                :aria-label="$t('Reorder')"
+                            >
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="9" cy="6" r="1" />
+                                    <circle cx="15" cy="6" r="1" />
+                                    <circle cx="9" cy="12" r="1" />
+                                    <circle cx="15" cy="12" r="1" />
+                                    <circle cx="9" cy="18" r="1" />
+                                    <circle cx="15" cy="18" r="1" />
+                                </svg>
+                            </button>
+                            <div class="grid flex-1 gap-2">
+                                <Input
+                                    v-model="section.title"
+                                    class="border-0 px-0 text-base font-semibold shadow-none focus-visible:ring-0"
+                                    :placeholder="$t('Section title (optional)')"
+                                    @input="markDirty"
+                                />
+                                <Input
+                                    v-model="section.description"
+                                    class="h-8 border-0 px-0 text-sm shadow-none focus-visible:ring-0"
+                                    :placeholder="$t('Section description (optional)')"
+                                    @input="markDirty"
+                                />
+                            </div>
+                            <Button
+                                v-if="sections.length > 1"
+                                variant="ghost"
+                                size="sm"
+                                class="text-muted-foreground hover:text-red-600"
+                                @click="removeSection(sectionIndex)"
+                            >
+                                {{ $t('Remove section') }}
+                            </Button>
+                        </CardHeader>
+                        <CardContent class="flex flex-col gap-3">
+                            <draggable
+                                :list="section.fields"
+                                item-key="id"
+                                handle=".drag-handle"
+                                group="fields"
+                                class="flex flex-col gap-3"
+                                @end="markDirty"
+                            >
+                                <template #item="{ element: field, index: fieldIndex }">
+                                    <FieldEditor :field="field" :max-upload-kb="maxUploadKb" @remove="removeField(section, fieldIndex)" />
+                                </template>
+                            </draggable>
+
+                            <p
+                                v-if="section.fields.length === 0"
+                                class="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground"
+                            >
+                                {{ $t('Empty section — add a question below.') }}
+                            </p>
+
+                            <DropdownMenu>
+                                <DropdownMenuTrigger as-child>
+                                    <Button variant="outline" class="w-fit">
+                                        <Plus class="mr-1 h-4 w-4" />
+                                        {{ $t('Add a question') }}
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" class="w-56">
+                                    <DropdownMenuLabel>{{ $t('Question type') }}</DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem v-for="item in fieldPalette" :key="item.type" @click="addField(section, item.type)">
+                                        <component :is="item.icon" class="mr-2 h-4 w-4 text-muted-foreground" />
+                                        {{ $t(item.label) }}
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </CardContent>
+                    </Card>
+                </template>
+            </draggable>
+
+            <Button variant="outline" class="w-fit" @click="addSection">
+                <ListPlus class="mr-1 h-4 w-4" />
+                {{ $t('Add a section') }}
+            </Button>
+        </div>
+
+        <!-- Settings dialog -->
+        <Dialog v-model:open="settingsOpen">
+            <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>{{ $t('Form settings') }}</DialogTitle>
+                    <DialogDescription>{{ $t('Access rules, notifications and GDPR retention.') }}</DialogDescription>
+                </DialogHeader>
+
+                <div class="grid gap-5 py-2">
+                    <div class="grid gap-2">
+                        <Label>{{ $t('Theme color') }}</Label>
+                        <div class="flex items-center gap-3">
+                            <input
+                                v-model="settingsForm.primary_color"
+                                type="color"
+                                class="h-9 w-14 cursor-pointer rounded border bg-background p-1"
+                            />
+                            <span class="text-sm text-muted-foreground">{{ settingsForm.primary_color }}</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-2">
+                        <Checkbox id="require-email" v-model:checked="settingsForm.require_email_verification" class="mt-0.5" />
+                        <div class="grid gap-1">
+                            <Label for="require-email" class="font-normal">{{ $t('Require email verification') }}</Label>
+                            <p class="text-xs text-muted-foreground">
+                                {{ $t('Respondents must confirm their email address with a code before submitting.') }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-2">
+                        <Checkbox id="notify" v-model:checked="settingsForm.notify_on_response" class="mt-0.5" />
+                        <div class="grid gap-1">
+                            <Label for="notify" class="font-normal">{{ $t('Email me on new response') }}</Label>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="grid gap-2">
+                            <Label for="max-responses">{{ $t('Response limit') }}</Label>
+                            <Input
+                                id="max-responses"
+                                v-model.number="settingsForm.max_responses"
+                                type="number"
+                                min="1"
+                                :placeholder="$t('Unlimited')"
+                            />
+                        </div>
+                        <div class="grid gap-2">
+                            <Label for="expires-at">{{ $t('Closes on') }}</Label>
+                            <Input id="expires-at" v-model="settingsForm.expires_at" type="datetime-local" />
+                        </div>
+                    </div>
+
+                    <div class="grid gap-2">
+                        <Label for="retention">{{ $t('Retention period (days)') }}</Label>
+                        <Input
+                            id="retention"
+                            v-model.number="settingsForm.retention_days"
+                            type="number"
+                            min="1"
+                            max="3650"
+                            :placeholder="String(defaultRetentionDays)"
+                        />
+                        <p class="text-xs text-muted-foreground">
+                            {{
+                                $t('Responses and files are automatically deleted after this period (GDPR). Empty = default (:days days).', {
+                                    days: String(defaultRetentionDays),
+                                })
+                            }}
+                        </p>
+                    </div>
+
+                    <div class="grid gap-2">
+                        <Label for="success-message">{{ $t('Thank you message') }}</Label>
+                        <textarea
+                            id="success-message"
+                            v-model="settingsForm.success_message"
+                            rows="2"
+                            class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            :placeholder="$t('Shown after a response is submitted')"
+                        ></textarea>
+                    </div>
+                </div>
+
+                <DialogFooter>
+                    <Button variant="outline" @click="settingsOpen = false">{{ $t('Cancel') }}</Button>
+                    <Button :disabled="settingsForm.processing" @click="saveSettings">{{ $t('Save') }}</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    </AppLayout>
+</template>
