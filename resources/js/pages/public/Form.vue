@@ -84,10 +84,19 @@ const isChecked = (fieldId: number, choice: string) => ((submission.answers[fiel
 
 const answerError = (fieldId: number) => (submission.errors as Record<string, string>)[`answers.${fieldId}`];
 
+const errorClass = (fieldId: number) => (answerError(fieldId) ? 'border-red-500 ring-1 ring-red-500 focus-visible:ring-red-500' : '');
+
 const submit = () => {
     submission.post(route('public.forms.submit', props.form.slug), {
         forceFormData: true,
         preserveScroll: true,
+        onError: (errors) => {
+            const firstKey = Object.keys(errors)[0];
+            const fieldId = firstKey?.match(/^answers\.(\d+)/)?.[1];
+            const target = fieldId ? document.getElementById(`field-block-${fieldId}`) : document.querySelector('[data-consent-block]');
+
+            target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        },
     });
 };
 </script>
@@ -127,7 +136,14 @@ const submit = () => {
                     </p>
                     <div class="mt-4 grid gap-3">
                         <div class="flex flex-col gap-2 sm:flex-row">
-                            <Input v-model="submission.email" type="email" :placeholder="$t('your@email.com')" class="flex-1" required />
+                            <Input
+                                v-model="submission.email"
+                                type="email"
+                                :placeholder="$t('your@email.com')"
+                                class="flex-1"
+                                :class="submission.errors.email || codeForm.errors.email ? 'border-red-500 ring-1 ring-red-500' : ''"
+                                required
+                            />
                             <Button type="button" variant="outline" :disabled="codeForm.processing || !submission.email" @click="sendCode">
                                 <LoaderCircle v-if="codeForm.processing" class="mr-1 h-4 w-4 animate-spin" />
                                 {{ codeSent ? $t('Send a new code') : $t('Send the code') }}
@@ -164,7 +180,7 @@ const submit = () => {
                             <!-- Static text block -->
                             <p v-if="field.type === 'info'" class="whitespace-pre-line text-sm">{{ field.label }}</p>
 
-                            <div v-else class="grid gap-2">
+                            <div v-else :id="`field-block-${field.id}`" class="grid gap-2">
                                 <Label :for="`field-${field.id}`" class="text-base font-medium">
                                     {{ field.label }}
                                     <span v-if="field.required" class="text-red-600" aria-hidden="true">*</span>
@@ -177,6 +193,7 @@ const submit = () => {
                                     v-model="submission.answers[field.id] as string"
                                     :maxlength="field.options?.max_length ?? 255"
                                     :required="field.required"
+                                    :class="errorClass(field.id)"
                                 />
 
                                 <textarea
@@ -187,6 +204,7 @@ const submit = () => {
                                     :maxlength="field.options?.max_length ?? 5000"
                                     :required="field.required"
                                     class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                    :class="errorClass(field.id)"
                                 ></textarea>
 
                                 <Input
@@ -195,6 +213,7 @@ const submit = () => {
                                     v-model="submission.answers[field.id] as string"
                                     type="email"
                                     :required="field.required"
+                                    :class="errorClass(field.id)"
                                 />
 
                                 <Input
@@ -203,6 +222,7 @@ const submit = () => {
                                     v-model="submission.answers[field.id] as string"
                                     type="number"
                                     :required="field.required"
+                                    :class="errorClass(field.id)"
                                 />
 
                                 <Input
@@ -211,6 +231,7 @@ const submit = () => {
                                     v-model="submission.answers[field.id] as string"
                                     type="date"
                                     :required="field.required"
+                                    :class="errorClass(field.id)"
                                 />
 
                                 <div v-else-if="field.type === 'choice'" class="grid gap-2">
@@ -218,6 +239,7 @@ const submit = () => {
                                         v-for="choice in field.options?.choices ?? []"
                                         :key="choice"
                                         class="flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                                        :class="errorClass(field.id)"
                                     >
                                         <input
                                             v-model="submission.answers[field.id]"
@@ -237,6 +259,7 @@ const submit = () => {
                                         v-for="choice in field.options?.choices ?? []"
                                         :key="choice"
                                         class="flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                                        :class="errorClass(field.id)"
                                     >
                                         <input
                                             type="checkbox"
@@ -255,6 +278,7 @@ const submit = () => {
                                     v-model="submission.answers[field.id]"
                                     :required="field.required"
                                     class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    :class="errorClass(field.id)"
                                 >
                                     <option value="" disabled selected>{{ $t('Select…') }}</option>
                                     <option v-for="choice in field.options?.choices ?? []" :key="choice" :value="choice">{{ choice }}</option>
@@ -266,6 +290,7 @@ const submit = () => {
                                     type="file"
                                     :required="field.required"
                                     class="flex w-full cursor-pointer rounded-md border border-input bg-background px-3 py-2 text-sm file:mr-3 file:border-0 file:bg-transparent file:font-medium"
+                                    :class="errorClass(field.id)"
                                     @change="setFile(field.id, $event)"
                                 />
 
@@ -276,7 +301,11 @@ const submit = () => {
                 </div>
 
                 <!-- GDPR consent -->
-                <div class="rounded-xl border bg-background p-6 shadow-sm">
+                <div
+                    data-consent-block
+                    class="rounded-xl border bg-background p-6 shadow-sm"
+                    :class="submission.errors.consent ? 'border-red-500 ring-1 ring-red-500' : ''"
+                >
                     <label class="flex cursor-pointer items-start gap-3">
                         <input v-model="submission.consent" type="checkbox" required class="mt-1 h-4 w-4 rounded" :style="{ accentColor: accent }" />
                         <span class="text-sm">
