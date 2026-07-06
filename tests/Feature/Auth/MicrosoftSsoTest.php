@@ -18,7 +18,7 @@ function fakeMicrosoftUser(string $id, string $email, string $name): void
 }
 
 test('the first SSO user becomes an administrator', function () {
-    fakeMicrosoftUser('azure-1', 'premier@anefloire.fr', 'Premier Utilisateur');
+    fakeMicrosoftUser('azure-1', 'premier@jturazzi.fr', 'Premier Utilisateur');
 
     $this->get('/auth/microsoft/callback')->assertRedirect(route('dashboard'));
 
@@ -33,7 +33,7 @@ test('the first SSO user becomes an administrator', function () {
 test('subsequent SSO users are creators', function () {
     User::factory()->create(['role' => 'admin']);
 
-    fakeMicrosoftUser('azure-2', 'deuxieme@anefloire.fr', 'Deuxième Utilisateur');
+    fakeMicrosoftUser('azure-2', 'deuxieme@jturazzi.fr', 'Deuxième Utilisateur');
 
     $this->get('/auth/microsoft/callback');
 
@@ -41,9 +41,9 @@ test('subsequent SSO users are creators', function () {
 });
 
 test('an existing account is linked by email', function () {
-    $existing = User::factory()->create(['email' => 'existant@anefloire.fr']);
+    $existing = User::factory()->create(['email' => 'existant@jturazzi.fr']);
 
-    fakeMicrosoftUser('azure-3', 'existant@anefloire.fr', 'Existant');
+    fakeMicrosoftUser('azure-3', 'existant@jturazzi.fr', 'Existant');
 
     $this->get('/auth/microsoft/callback');
 

@@ -1,6 +1,6 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "anefloire/formulaires",
+    "name": "jturazzi/formulaires",
     "type": "project",
     "description": "Open source, self-hosted and GDPR-friendly form builder with Microsoft 365 SSO (Laravel + Inertia + Vue 3).",
     "keywords": [

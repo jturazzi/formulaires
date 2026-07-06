@@ -47,7 +47,7 @@ const mainNavItems = computed<NavItem[]>(() => {
 const footerNavItems: NavItem[] = [
     {
         title: 'GitHub',
-        href: 'https://github.com/anefloire/formulaires',
+        href: 'https://github.com/jturazzi/formulaires',
         icon: Folder,
     },
 ];

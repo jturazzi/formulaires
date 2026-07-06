@@ -28,7 +28,7 @@ Built with **Laravel 13**, **Inertia.js v2** and **Vue 3** (TypeScript, Tailwind
 ## Installation
 
 ```bash
-git clone https://github.com/anefloire/formulaires.git
+git clone https://github.com/jturazzi/formulaires.git
 cd formulaires
 
 composer install
