@@ -4,7 +4,7 @@
 
 **Formulaires** est un créateur de formulaires open source et auto-hébergé. Créez des formulaires avec sections, questions et envoi de fichiers, partagez un lien public, et centralisez toutes les réponses — avec une conformité RGPD intégrée.
 
-Construit avec **Laravel 12**, **Inertia.js v2** et **Vue 3** (TypeScript, Tailwind CSS).
+Construit avec **Laravel 13**, **Inertia.js v2** et **Vue 3** (TypeScript, Tailwind CSS).
 
 ## Fonctionnalités
 
@@ -20,7 +20,7 @@ Construit avec **Laravel 12**, **Inertia.js v2** et **Vue 3** (TypeScript, Tailw
 
 ## Prérequis
 
-- PHP ≥ 8.2 avec les extensions usuelles
+- PHP ≥ 8.3 avec les extensions usuelles
 - Composer
 - Node.js ≥ 20 et npm
 - MySQL/MariaDB (recommandé), PostgreSQL ou SQLite

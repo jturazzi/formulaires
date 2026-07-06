@@ -4,7 +4,7 @@
 
 **Formulaires** is an open source, self-hosted form builder. Create forms with sections, questions and file uploads, share a public link, and collect all responses in one place — with GDPR compliance built in.
 
-Built with **Laravel 12**, **Inertia.js v2** and **Vue 3** (TypeScript, Tailwind CSS).
+Built with **Laravel 13**, **Inertia.js v2** and **Vue 3** (TypeScript, Tailwind CSS).
 
 ## Features
 
@@ -20,7 +20,7 @@ Built with **Laravel 12**, **Inertia.js v2** and **Vue 3** (TypeScript, Tailwind
 
 ## Requirements
 
-- PHP ≥ 8.2 with common extensions
+- PHP ≥ 8.3 with common extensions
 - Composer
 - Node.js ≥ 20 and npm
 - MySQL/MariaDB (recommended), PostgreSQL or SQLite
