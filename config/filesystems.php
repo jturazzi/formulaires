@@ -36,6 +36,15 @@ return [
             'serve' => true,
             'throw' => false,
             'report' => false,
+            // Keep uploaded files unreadable to other system users, but let the
+            // owning group (e.g. deploy tooling sharing the web server's group)
+            // traverse the directory tree — the default 0700 dirs otherwise
+            // block anything outside the web server user, including `ls`,
+            // backups or linters that walk the project root.
+            'permissions' => [
+                'file' => ['private' => 0640],
+                'dir' => ['private' => 0750],
+            ],
         ],
 
         'public' => [

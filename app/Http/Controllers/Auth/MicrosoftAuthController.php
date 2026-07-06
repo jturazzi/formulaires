@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Facades\Socialite;
 
 class MicrosoftAuthController extends Controller
@@ -17,20 +19,33 @@ class MicrosoftAuthController extends Controller
         return Socialite::driver('microsoft')->redirect();
     }
 
-    public function callback(): RedirectResponse
+    public function callback(Request $request): RedirectResponse
     {
         abort_unless(config('services.microsoft.client_id'), 404);
 
+        if ($request->filled('error')) {
+            Log::warning('Microsoft SSO callback returned an error', [
+                'error' => $request->string('error')->toString(),
+                'error_description' => $request->string('error_description')->toString(),
+            ]);
+
+            return redirect()->route('login')->with('error', __('auth.sso_failed'));
+        }
+
         try {
             $microsoftUser = Socialite::driver('microsoft')->user();
-        } catch (\Throwable) {
-            return redirect()->route('login')->withErrors(['email' => __('auth.sso_failed')]);
+        } catch (\Throwable $exception) {
+            Log::error('Microsoft SSO callback failed', ['exception' => $exception]);
+
+            return redirect()->route('login')->with('error', __('auth.sso_failed'));
         }
 
         $email = $microsoftUser->getEmail();
 
         if (! $email) {
-            return redirect()->route('login')->withErrors(['email' => __('auth.sso_failed')]);
+            Log::warning('Microsoft SSO callback returned no email address', ['azure_id' => $microsoftUser->getId()]);
+
+            return redirect()->route('login')->with('error', __('auth.sso_failed'));
         }
 
         $user = User::query()

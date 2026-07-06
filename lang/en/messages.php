@@ -10,6 +10,7 @@ return [
     'user_deleted' => 'User deleted, along with their forms and responses.',
     'cannot_change_own_role' => 'You cannot change your own role.',
     'cannot_delete_self' => 'You cannot delete your own account from here.',
+    'slug_format' => 'The link may only contain lowercase letters, numbers and hyphens (e.g. registration-2026).',
 
     'submitted_at' => 'Submitted at',
     'respondent_email' => 'Respondent email',

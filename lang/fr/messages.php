@@ -10,6 +10,7 @@ return [
     'user_deleted' => 'Utilisateur supprimé, ainsi que ses formulaires et réponses.',
     'cannot_change_own_role' => 'Vous ne pouvez pas modifier votre propre rôle.',
     'cannot_delete_self' => 'Vous ne pouvez pas supprimer votre propre compte ici.',
+    'slug_format' => 'Le lien ne peut contenir que des lettres minuscules, des chiffres et des tirets (ex. inscription-2026).',
 
     'submitted_at' => 'Date de soumission',
     'respondent_email' => 'Email du répondant',

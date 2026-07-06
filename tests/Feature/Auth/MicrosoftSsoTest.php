@@ -57,3 +57,14 @@ test('the SSO routes return 404 when not configured', function () {
     $this->get('/auth/microsoft')->assertNotFound();
     $this->get('/auth/microsoft/callback')->assertNotFound();
 });
+
+test('an error returned by Microsoft redirects to login with a visible message', function () {
+    config(['services.microsoft.client_id' => 'fake-client-id']);
+
+    $this->get('/auth/microsoft/callback?error=invalid_request&error_description=tenant+mismatch')
+        ->assertRedirect(route('login'))
+        ->assertSessionHas('error');
+
+    expect(User::count())->toBe(0);
+    $this->assertGuest();
+});

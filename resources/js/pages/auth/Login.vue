@@ -32,7 +32,12 @@ const submit = () => {
 </script>
 
 <template>
-    <AuthBase :title="trans('Log in to your account')" :description="trans('Sign in with Microsoft 365 or with your email and password')">
+    <AuthBase
+        :title="trans('Log in to your account')"
+        :description="
+            page.props.features.sso ? trans('Sign in with your Microsoft 365 organization account') : trans('Sign in with your email and password')
+        "
+    >
         <Head :title="$t('Log in')" />
 
         <div v-if="status" class="mb-4 text-center text-sm font-medium text-green-600">
@@ -40,30 +45,19 @@ const submit = () => {
         </div>
 
         <div class="flex flex-col gap-6">
-            <template v-if="page.props.features.sso">
-                <Button as-child variant="outline" class="w-full">
-                    <a :href="route('auth.microsoft')">
-                        <svg class="mr-2 h-4 w-4" viewBox="0 0 23 23" aria-hidden="true">
-                            <rect x="1" y="1" width="10" height="10" fill="#f25022" />
-                            <rect x="12" y="1" width="10" height="10" fill="#7fba00" />
-                            <rect x="1" y="12" width="10" height="10" fill="#00a4ef" />
-                            <rect x="12" y="12" width="10" height="10" fill="#ffb900" />
-                        </svg>
-                        {{ $t('Sign in with Microsoft 365') }}
-                    </a>
-                </Button>
+            <Button v-if="page.props.features.sso" as-child variant="outline" class="w-full">
+                <a :href="route('auth.microsoft')">
+                    <svg class="mr-2 h-4 w-4" viewBox="0 0 23 23" aria-hidden="true">
+                        <rect x="1" y="1" width="10" height="10" fill="#f25022" />
+                        <rect x="12" y="1" width="10" height="10" fill="#7fba00" />
+                        <rect x="1" y="12" width="10" height="10" fill="#00a4ef" />
+                        <rect x="12" y="12" width="10" height="10" fill="#ffb900" />
+                    </svg>
+                    {{ $t('Sign in with Microsoft 365') }}
+                </a>
+            </Button>
 
-                <div class="relative">
-                    <div class="absolute inset-0 flex items-center">
-                        <span class="w-full border-t" />
-                    </div>
-                    <div class="relative flex justify-center text-xs uppercase">
-                        <span class="bg-background px-2 text-muted-foreground">{{ $t('or') }}</span>
-                    </div>
-                </div>
-            </template>
-
-            <form @submit.prevent="submit" class="flex flex-col gap-6">
+            <form v-else @submit.prevent="submit" class="flex flex-col gap-6">
                 <div class="grid gap-6">
                     <div class="grid gap-2">
                         <Label for="email">{{ $t('Email address') }}</Label>

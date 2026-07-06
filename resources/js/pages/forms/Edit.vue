@@ -145,6 +145,7 @@ const settingsOpen = ref(false);
 
 const settingsForm = useForm({
     title: props.form.title,
+    slug: props.form.slug,
     description: props.form.description ?? '',
     primary_color: props.form.primary_color ?? '#2563eb',
     require_email_verification: props.form.require_email_verification,
@@ -154,6 +155,15 @@ const settingsForm = useForm({
     retention_days: props.form.retention_days,
     success_message: props.form.success_message ?? '',
 });
+
+// Keep the editable slug in sync after a successful rename (the dialog is
+// closed on success, so this never clobbers an in-progress edit).
+watch(
+    () => props.form.slug,
+    (slug) => (settingsForm.slug = slug),
+);
+
+const publicBaseUrl = computed(() => props.form.public_url.replace(`/f/${props.form.slug}`, '/f/'));
 
 const saveSettings = () => {
     settingsForm
@@ -400,6 +410,26 @@ const statusLabel = computed(() => {
                 </DialogHeader>
 
                 <div class="grid gap-5 py-2">
+                    <div class="grid gap-2">
+                        <Label for="form-slug">{{ $t('Public link') }}</Label>
+                        <div
+                            class="flex items-center rounded-md border border-input bg-background px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-ring"
+                        >
+                            <span class="whitespace-nowrap text-muted-foreground">{{ publicBaseUrl }}</span>
+                            <input
+                                id="form-slug"
+                                v-model="settingsForm.slug"
+                                class="min-w-0 flex-1 bg-transparent outline-none"
+                                pattern="[a-z0-9]+(-[a-z0-9]+)*"
+                                maxlength="32"
+                            />
+                        </div>
+                        <p class="text-xs text-muted-foreground">
+                            {{ $t('Lowercase letters, numbers and hyphens only. Changing this breaks previously shared links.') }}
+                        </p>
+                        <p v-if="settingsForm.errors.slug" class="text-sm text-red-600">{{ settingsForm.errors.slug }}</p>
+                    </div>
+
                     <div class="grid gap-2">
                         <Label>{{ $t('Theme color') }}</Label>
                         <div class="flex items-center gap-3">

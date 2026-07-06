@@ -64,6 +64,11 @@ class FormController extends Controller
 
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
+            'slug' => [
+                'required', 'string', 'min:3', 'max:32',
+                'regex:/^[a-z0-9]+(-[a-z0-9]+)*$/',
+                Rule::unique('forms', 'slug')->ignore($form->id),
+            ],
             'description' => ['nullable', 'string', 'max:5000'],
             'primary_color' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'require_email_verification' => ['boolean'],
@@ -72,6 +77,8 @@ class FormController extends Controller
             'expires_at' => ['nullable', 'date'],
             'retention_days' => ['nullable', 'integer', 'min:1', 'max:3650'],
             'success_message' => ['nullable', 'string', 'max:2000'],
+        ], [
+            'slug.regex' => __('messages.slug_format'),
         ]);
 
         $form->update($validated);

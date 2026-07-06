@@ -113,6 +113,41 @@ test('an admin can edit any form', function () {
     $this->actingAs($admin)->get(route('forms.edit', $form))->assertOk();
 });
 
+test('the owner can customize the public slug', function () {
+    $user = User::factory()->create();
+    $form = Form::factory()->for($user)->create();
+
+    $this->actingAs($user)->put(route('forms.update', $form), [
+        'title' => $form->title,
+        'slug' => 'inscription-gala-2026',
+    ])->assertRedirect();
+
+    expect($form->fresh()->slug)->toBe('inscription-gala-2026');
+});
+
+test('the slug must be unique across forms', function () {
+    $user = User::factory()->create();
+    Form::factory()->for($user)->create(['slug' => 'deja-pris']);
+    $form = Form::factory()->for($user)->create();
+
+    $this->actingAs($user)->put(route('forms.update', $form), [
+        'title' => $form->title,
+        'slug' => 'deja-pris',
+    ])->assertSessionHasErrors('slug');
+});
+
+test('the slug must only contain lowercase letters, numbers and hyphens', function () {
+    $user = User::factory()->create();
+    $form = Form::factory()->for($user)->create();
+
+    foreach (['Majuscules', 'espace ici', 'accentué', '-commence-par-tiret', 'finit-par-tiret-'] as $invalidSlug) {
+        $this->actingAs($user)->put(route('forms.update', $form), [
+            'title' => $form->title,
+            'slug' => $invalidSlug,
+        ])->assertSessionHasErrors('slug');
+    }
+});
+
 test('duplicating a form copies its structure as a draft', function () {
     $user = User::factory()->create();
     $form = Form::factory()->for($user)->published()->create();
