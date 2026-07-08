@@ -30,9 +30,11 @@ USER root
 RUN apk add --no-cache \
     bash \
     curl \
+    ca-certificates \
     libpng \
     libjpeg-turbo \
     freetype \
+    && update-ca-certificates \
     && apk add --no-cache --virtual .build-deps \
     libpng-dev \
     libjpeg-turbo-dev \
