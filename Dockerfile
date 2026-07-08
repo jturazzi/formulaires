@@ -12,6 +12,7 @@ RUN npm ci
 # Compilation des assets avec Vite
 COPY vite.config.ts tailwind.config.js ./
 COPY resources/ ./resources/
+COPY lang/ ./lang/
 RUN npm run build
 
 # ============================================
