@@ -10,7 +10,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 # Compilation des assets avec Vite
-COPY vite.config.ts ./
+COPY vite.config.ts tailwind.config.js ./
 COPY resources/ ./resources/
 RUN npm run build
 
