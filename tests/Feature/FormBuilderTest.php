@@ -125,6 +125,25 @@ test('the owner can customize the public slug', function () {
     expect($form->fresh()->slug)->toBe('inscription-gala-2026');
 });
 
+test('notification recipients can be saved and are validated as emails', function () {
+    $user = User::factory()->create();
+    $form = Form::factory()->for($user)->create();
+
+    $this->actingAs($user)->put(route('forms.update', $form), [
+        'title' => $form->title,
+        'slug' => $form->slug,
+        'notification_emails' => ['not-an-email'],
+    ])->assertSessionHasErrors('notification_emails.0');
+
+    $this->actingAs($user)->put(route('forms.update', $form), [
+        'title' => $form->title,
+        'slug' => $form->slug,
+        'notification_emails' => ['a@example.com', 'b@example.com'],
+    ])->assertRedirect();
+
+    expect($form->fresh()->notification_emails)->toBe(['a@example.com', 'b@example.com']);
+});
+
 test('the slug must be unique across forms', function () {
     $user = User::factory()->create();
     Form::factory()->for($user)->create(['slug' => 'deja-pris']);

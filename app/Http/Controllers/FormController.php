@@ -93,6 +93,8 @@ class FormController extends Controller
             'primary_color' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'require_email_verification' => ['boolean'],
             'notify_on_response' => ['boolean'],
+            'notification_emails' => ['nullable', 'array', 'max:10'],
+            'notification_emails.*' => ['email'],
             'max_responses' => ['nullable', 'integer', 'min:1'],
             'expires_at' => ['nullable', 'date'],
             'retention_days' => ['nullable', 'integer', 'min:1', 'max:3650'],
@@ -208,6 +210,7 @@ class FormController extends Controller
 
         $isOwner = $form->user_id === $user->id;
         $canManageShares = $user->can('manageShares', $form);
+        $canTransferOwnership = $user->can('transferOwnership', $form);
 
         return [
             'id' => $form->id,
@@ -219,6 +222,7 @@ class FormController extends Controller
             'status' => $form->status,
             'require_email_verification' => $form->require_email_verification,
             'notify_on_response' => $form->notify_on_response,
+            'notification_emails' => $form->notification_emails ?? [],
             'max_responses' => $form->max_responses,
             'expires_at' => $form->expires_at?->format('Y-m-d\TH:i'),
             'retention_days' => $form->retention_days,
@@ -228,6 +232,7 @@ class FormController extends Controller
             'is_owner' => $isOwner,
             'is_shared_with_me' => ! $isOwner && $form->shares()->where('user_id', $user->id)->exists(),
             'can_manage_shares' => $canManageShares,
+            'can_transfer_ownership' => $canTransferOwnership,
             'owner' => [
                 'name' => $form->user->name,
                 'email' => $form->user->email,

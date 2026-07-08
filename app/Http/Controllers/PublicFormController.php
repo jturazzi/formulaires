@@ -44,8 +44,10 @@ class PublicFormController extends Controller
 
         $response = $service->store($form, $request, $validated);
 
-        if ($form->notify_on_response && $form->user?->email) {
-            Mail::to($form->user->email)->send(new NewResponseMail($form, $response));
+        if ($form->notify_on_response) {
+            foreach ($form->notificationRecipients() as $email) {
+                Mail::to($email)->send(new NewResponseMail($form, $response));
+            }
         }
 
         return redirect()->route('public.forms.thanks', $form->slug);

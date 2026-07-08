@@ -30,6 +30,7 @@ class Form extends Model
         'primary_color',
         'require_email_verification',
         'notify_on_response',
+        'notification_emails',
         'max_responses',
         'expires_at',
         'retention_days',
@@ -41,6 +42,7 @@ class Form extends Model
         return [
             'require_email_verification' => 'boolean',
             'notify_on_response' => 'boolean',
+            'notification_emails' => 'array',
             'max_responses' => 'integer',
             'retention_days' => 'integer',
             'expires_at' => 'datetime',
@@ -91,6 +93,17 @@ class Form extends Model
     public function collaborators(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'form_shares')->withTimestamps();
+    }
+
+    /**
+     * Who gets the "new response" email. The owner is never included automatically —
+     * they can add their own address to the list if they want it.
+     *
+     * @return list<string>
+     */
+    public function notificationRecipients(): array
+    {
+        return $this->notification_emails ?? [];
     }
 
     public function isOpen(): bool

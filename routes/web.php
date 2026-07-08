@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FormController;
+use App\Http\Controllers\FormOwnershipController;
 use App\Http\Controllers\FormResponseController;
 use App\Http\Controllers\FormShareController;
 use App\Http\Controllers\FormStructureController;
@@ -59,6 +60,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::post('forms/{form}/shares', [FormShareController::class, 'store'])->name('forms.shares.store');
     Route::delete('forms/{form}/shares/{share}', [FormShareController::class, 'destroy'])->name('forms.shares.destroy');
+    Route::post('forms/{form}/owner', [FormOwnershipController::class, 'update'])->name('forms.owner.update');
 
     Route::get('forms/{form}/responses', [FormResponseController::class, 'index'])->name('forms.responses.index');
     Route::get('forms/{form}/responses/export', [FormResponseController::class, 'export'])->name('forms.responses.export');

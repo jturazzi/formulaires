@@ -94,6 +94,7 @@ export interface FormData {
     status: FormStatus;
     require_email_verification: boolean;
     notify_on_response: boolean;
+    notification_emails: string[];
     max_responses: number | null;
     expires_at: string | null;
     retention_days: number | null;
@@ -103,6 +104,7 @@ export interface FormData {
     is_owner: boolean;
     is_shared_with_me: boolean;
     can_manage_shares: boolean;
+    can_transfer_ownership: boolean;
     owner: { name: string; email: string };
     shares: FormShareData[] | null;
     sections: FormSectionData[];

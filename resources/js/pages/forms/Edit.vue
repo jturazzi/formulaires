@@ -158,11 +158,15 @@ const settingsForm = useForm({
     primary_color: props.form.primary_color ?? '#2563eb',
     require_email_verification: props.form.require_email_verification,
     notify_on_response: props.form.notify_on_response,
+    notification_emails: [...props.form.notification_emails],
     max_responses: props.form.max_responses,
     expires_at: props.form.expires_at ?? '',
     retention_days: props.form.retention_days,
     success_message: props.form.success_message ?? '',
 });
+
+const addNotificationEmail = () => settingsForm.notification_emails.push('');
+const removeNotificationEmail = (index: number) => settingsForm.notification_emails.splice(index, 1);
 
 // Keep the editable slug in sync after a successful rename (the dialog is
 // closed on success, so this never clobbers an in-progress edit).
@@ -180,6 +184,7 @@ const saveSettings = () => {
             expires_at: data.expires_at || null,
             description: data.description || null,
             success_message: data.success_message || null,
+            notification_emails: data.notification_emails.map((email) => email.trim()).filter((email) => email !== ''),
         }))
         .put(route('forms.update', props.form.id), {
             preserveScroll: true,
@@ -206,6 +211,32 @@ const submitShare = () => {
 
 const removeShare = (shareId: number) => {
     router.delete(route('forms.shares.destroy', [props.form.id, shareId]), { preserveScroll: true });
+};
+
+/* ------------------------------------------------------------------ */
+/* Ownership transfer                                                  */
+/* ------------------------------------------------------------------ */
+
+const transferForm = useForm({
+    email: '',
+});
+
+const transferConfirmOpen = ref(false);
+
+const askTransferConfirmation = () => {
+    if (transferForm.email.trim() !== '') {
+        transferConfirmOpen.value = true;
+    }
+};
+
+const confirmTransfer = () => {
+    transferForm.post(route('forms.owner.update', props.form.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            transferForm.reset();
+            transferConfirmOpen.value = false;
+        },
+    });
 };
 
 /* ------------------------------------------------------------------ */
@@ -522,6 +553,34 @@ const statusLabel = computed(() => {
                         </div>
                     </div>
 
+                    <div v-if="settingsForm.notify_on_response" class="grid gap-2 pl-6">
+                        <Label>{{ $t('Notification recipients') }}</Label>
+                        <div v-for="(email, index) in settingsForm.notification_emails" :key="index" class="flex items-center gap-2">
+                            <Input
+                                v-model="settingsForm.notification_emails[index]"
+                                type="email"
+                                class="h-9"
+                                :placeholder="$t('your@email.com')"
+                            />
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                class="h-8 w-8 shrink-0 text-muted-foreground"
+                                @click="removeNotificationEmail(index)"
+                            >
+                                <Trash2 class="h-4 w-4" />
+                            </Button>
+                        </div>
+                        <Button variant="outline" size="sm" class="w-fit" @click="addNotificationEmail">
+                            <Plus class="mr-1 h-4 w-4" />
+                            {{ $t('Add recipient') }}
+                        </Button>
+                        <p class="text-xs text-muted-foreground">
+                            {{ $t('Add at least one recipient, otherwise no notification will be sent.') }}
+                        </p>
+                        <InputError :message="settingsForm.errors.notification_emails" />
+                    </div>
+
                     <div class="grid grid-cols-2 gap-4">
                         <div class="grid gap-2">
                             <Label for="max-responses">{{ $t('Response limit') }}</Label>
@@ -618,8 +677,38 @@ const statusLabel = computed(() => {
                 </div>
                 <p v-else class="text-sm text-muted-foreground">{{ $t('Not shared with anyone yet.') }}</p>
 
+                <div v-if="form.can_transfer_ownership" class="grid gap-2 border-t pt-4">
+                    <Label>{{ $t('Transfer ownership') }}</Label>
+                    <p class="text-xs text-muted-foreground">
+                        {{ $t("You'll keep access to the form as a collaborator after the transfer.") }}
+                    </p>
+                    <form class="flex items-start gap-2" @submit.prevent="askTransferConfirmation">
+                        <div class="flex-1">
+                            <Input v-model="transferForm.email" type="email" required :placeholder="$t('Email address')" />
+                            <InputError :message="transferForm.errors.email" />
+                        </div>
+                        <Button type="submit" variant="outline">{{ $t('Transfer') }}</Button>
+                    </form>
+                </div>
+
                 <DialogFooter>
                     <Button variant="outline" @click="shareOpen = false">{{ $t('Close') }}</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        <!-- Ownership transfer confirmation -->
+        <Dialog v-model:open="transferConfirmOpen">
+            <DialogContent class="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>{{ $t('Transfer ownership?') }}</DialogTitle>
+                    <DialogDescription>
+                        {{ $t('This form will belong to :email. You will keep access as a collaborator.', { email: transferForm.email }) }}
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button variant="outline" @click="transferConfirmOpen = false">{{ $t('Cancel') }}</Button>
+                    <Button :disabled="transferForm.processing" @click="confirmTransfer">{{ $t('Transfer') }}</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

@@ -18,11 +18,7 @@ class FormShareController extends Controller
             'email' => ['required', 'email'],
         ]);
 
-        $user = User::where('email', $validated['email'])->first();
-
-        if (! $user) {
-            return back()->with('error', __('messages.share_user_not_found'));
-        }
+        $user = User::findOrCreateByEmail($validated['email']);
 
         if ($user->id === $form->user_id) {
             return back()->with('error', __('messages.share_is_owner'));

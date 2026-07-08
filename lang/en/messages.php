@@ -11,8 +11,8 @@ return [
     'cannot_change_own_role' => 'You cannot change your own role.',
     'cannot_delete_self' => 'You cannot delete your own account from here.',
     'slug_format' => 'The link may only contain lowercase letters, numbers and hyphens (e.g. registration-2026).',
-    'share_user_not_found' => 'No account found for this email address. They need to sign in once before they can be added.',
     'share_is_owner' => 'This person already owns the form.',
+    'transfer_already_owner' => 'This person already owns the form.',
 
     'submitted_at' => 'Submitted at',
     'respondent_email' => 'Respondent email',

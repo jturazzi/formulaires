@@ -11,8 +11,8 @@ return [
     'cannot_change_own_role' => 'Vous ne pouvez pas modifier votre propre rôle.',
     'cannot_delete_self' => 'Vous ne pouvez pas supprimer votre propre compte ici.',
     'slug_format' => 'Le lien ne peut contenir que des lettres minuscules, des chiffres et des tirets (ex. inscription-2026).',
-    'share_user_not_found' => 'Aucun compte trouvé pour cette adresse email. La personne doit se connecter une première fois avant de pouvoir être ajoutée.',
     'share_is_owner' => 'Cette personne est déjà propriétaire du formulaire.',
+    'transfer_already_owner' => 'Cette personne est déjà propriétaire du formulaire.',
 
     'submitted_at' => 'Date de soumission',
     'respondent_email' => 'Email du répondant',

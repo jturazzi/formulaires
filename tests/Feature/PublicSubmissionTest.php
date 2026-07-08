@@ -179,7 +179,7 @@ test('a wrong verification code is rejected', function () {
     ])->assertSessionHasErrors('code');
 });
 
-test('the owner is notified when enabled', function () {
+test('the owner is not notified unless they added themselves as a recipient', function () {
     Mail::fake();
 
     $owner = User::factory()->create();
@@ -189,5 +189,23 @@ test('the owner is notified when enabled', function () {
 
     $this->post("/f/{$form->slug}", ['consent' => true, 'answers' => []]);
 
-    Mail::assertSent(NewResponseMail::class, fn (NewResponseMail $mail) => $mail->hasTo($owner->email));
+    Mail::assertNothingSent();
+});
+
+test('notification recipients receive the new response email', function () {
+    Mail::fake();
+
+    $owner = User::factory()->create();
+    $form = Form::factory()->for($owner)->published()->create([
+        'notify_on_response' => true,
+        'notification_emails' => ['team@example.com', 'other@example.com'],
+    ]);
+    $form->sections()->create(['position' => 0]);
+    FormField::factory()->for($form)->create(['form_section_id' => $form->sections()->first()->id]);
+
+    $this->post("/f/{$form->slug}", ['consent' => true, 'answers' => []]);
+
+    Mail::assertSent(NewResponseMail::class, fn (NewResponseMail $mail) => $mail->hasTo('team@example.com'));
+    Mail::assertSent(NewResponseMail::class, fn (NewResponseMail $mail) => $mail->hasTo('other@example.com'));
+    Mail::assertSent(NewResponseMail::class, 2);
 });

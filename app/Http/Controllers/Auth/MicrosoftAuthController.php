@@ -54,13 +54,16 @@ class MicrosoftAuthController extends Controller
             ->first();
 
         if (! $user) {
-            $user = new User([
-                'name' => $microsoftUser->getName() ?: $email,
-                'email' => $email,
-            ]);
+            $user = new User(['email' => $email]);
 
             // The very first account becomes the administrator.
             $user->role = User::query()->exists() ? 'creator' : 'admin';
+        }
+
+        // Not yet linked to a real SSO identity: this is either a brand-new account
+        // or a placeholder created by sharing/ownership transfer — sync the real name.
+        if ($user->azure_id === null) {
+            $user->name = $microsoftUser->getName() ?: $email;
         }
 
         $user->azure_id = $microsoftUser->getId();

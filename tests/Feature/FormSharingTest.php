@@ -15,15 +15,19 @@ test('the owner can share a form with another user by email', function () {
     expect($form->fresh()->collaborators->pluck('id'))->toContain($collaborator->id);
 });
 
-test('sharing with an unknown email fails with an error', function () {
+test('sharing with an email with no account creates a placeholder user', function () {
     $owner = User::factory()->create();
     $form = Form::factory()->for($owner)->create();
 
     $this->actingAs($owner)
         ->post(route('forms.shares.store', $form), ['email' => 'nobody@example.com'])
-        ->assertSessionHas('error');
+        ->assertRedirect();
 
-    expect($form->fresh()->collaborators)->toHaveCount(0);
+    $newUser = User::where('email', 'nobody@example.com')->first();
+
+    expect($newUser)->not->toBeNull()
+        ->and($newUser->role)->toBe('creator')
+        ->and($form->fresh()->collaborators->pluck('id'))->toContain($newUser->id);
 });
 
 test('a collaborator can view and edit a shared form but cannot delete it', function () {

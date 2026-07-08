@@ -30,4 +30,13 @@ class FormPolicy
     {
         return $this->view($user, $form);
     }
+
+    /**
+     * Changing who owns the form is more sensitive than sharing it — reserved
+     * for the current owner (and admins), like deletion.
+     */
+    public function transferOwnership(User $user, Form $form): bool
+    {
+        return $this->delete($user, $form);
+    }
 }

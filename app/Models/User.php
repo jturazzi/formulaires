@@ -57,6 +57,19 @@ class User extends Authenticatable
         return $this->role === 'admin';
     }
 
+    /**
+     * Find a user by email, or create a placeholder account for them (e.g. when
+     * sharing a form or transferring ownership to someone new). Their real name
+     * and avatar are filled in the first time they sign in via SSO.
+     */
+    public static function findOrCreateByEmail(string $email): self
+    {
+        return static::query()->firstOrCreate(
+            ['email' => $email],
+            ['name' => $email],
+        );
+    }
+
     public function forms(): HasMany
     {
         return $this->hasMany(Form::class);
