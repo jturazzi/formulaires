@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FormController;
 use App\Http\Controllers\FormResponseController;
+use App\Http\Controllers\FormShareController;
 use App\Http\Controllers\FormStructureController;
 use App\Http\Controllers\LegalPageController;
 use App\Http\Controllers\LocaleController;
@@ -55,6 +56,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('forms/{form}/duplicate', [FormController::class, 'duplicate'])->name('forms.duplicate');
     Route::post('forms/{form}/logo', [FormController::class, 'uploadLogo'])->name('forms.logo.upload');
     Route::delete('forms/{form}/logo', [FormController::class, 'deleteLogo'])->name('forms.logo.delete');
+
+    Route::post('forms/{form}/shares', [FormShareController::class, 'store'])->name('forms.shares.store');
+    Route::delete('forms/{form}/shares/{share}', [FormShareController::class, 'destroy'])->name('forms.shares.destroy');
 
     Route::get('forms/{form}/responses', [FormResponseController::class, 'index'])->name('forms.responses.index');
     Route::get('forms/{form}/responses/export', [FormResponseController::class, 'export'])->name('forms.responses.export');

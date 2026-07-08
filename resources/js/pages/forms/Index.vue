@@ -19,6 +19,10 @@ interface FormRow {
     responses_count: number;
     expires_at: string | null;
     updated_at: string;
+    is_owner: boolean;
+    is_shared_with_me: boolean;
+    owner_name: string;
+    can_delete: boolean;
 }
 
 defineProps<{
@@ -141,6 +145,12 @@ const formatDate = (value: string) => new Date(value).toLocaleDateString();
                         <tr v-for="form in forms" :key="form.id" class="border-b last:border-0 hover:bg-muted/30">
                             <td class="px-4 py-3">
                                 <Link :href="route('forms.edit', form.id)" class="font-medium hover:underline">{{ form.title }}</Link>
+                                <span v-if="form.is_shared_with_me" class="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                                    {{ $t('Shared by :name', { name: form.owner_name }) }}
+                                </span>
+                                <span v-else-if="!form.is_owner" class="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                                    {{ $t('Owned by :name', { name: form.owner_name }) }}
+                                </span>
                             </td>
                             <td class="px-4 py-3">
                                 <span class="rounded-full px-2.5 py-0.5 text-xs font-medium" :class="statusClass[form.status]">
@@ -188,11 +198,13 @@ const formatDate = (value: string) => new Date(value).toLocaleDateString();
                                             <Copy class="mr-2 h-4 w-4" />
                                             {{ $t('Duplicate') }}
                                         </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem class="text-red-600" @click="deleteCandidate = form">
-                                            <Trash2 class="mr-2 h-4 w-4" />
-                                            {{ $t('Delete') }}
-                                        </DropdownMenuItem>
+                                        <template v-if="form.can_delete">
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem class="text-red-600" @click="deleteCandidate = form">
+                                                <Trash2 class="mr-2 h-4 w-4" />
+                                                {{ $t('Delete') }}
+                                            </DropdownMenuItem>
+                                        </template>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </td>

@@ -14,19 +14,22 @@ class DashboardController extends Controller
     {
         $user = $request->user();
 
-        $formIds = $user->forms()->pluck('id');
+        // Admins see stats and recent activity across every form, not just their own.
+        $baseQuery = fn () => $user->isAdmin() ? Form::query() : $user->forms();
+
+        $formIds = $baseQuery()->pluck('id');
 
         return Inertia::render('Dashboard', [
             'stats' => [
                 'forms' => $formIds->count(),
-                'published' => $user->forms()->where('status', Form::STATUS_PUBLISHED)->count(),
+                'published' => $baseQuery()->where('status', Form::STATUS_PUBLISHED)->count(),
                 'responses' => Response::query()->whereIn('form_id', $formIds)->count(),
                 'responses_this_week' => Response::query()
                     ->whereIn('form_id', $formIds)
                     ->where('submitted_at', '>=', now()->subDays(7))
                     ->count(),
             ],
-            'recentForms' => $user->forms()
+            'recentForms' => $baseQuery()
                 ->withCount('responses')
                 ->latest('updated_at')
                 ->limit(5)

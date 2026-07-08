@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Form;
 use App\Models\FormField;
+use App\Models\FormShare;
 use App\Models\Setting;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -16,10 +18,24 @@ class FormController extends Controller
 {
     public function index(Request $request): InertiaResponse
     {
-        $forms = $request->user()->forms()
+        $user = $request->user();
+
+        $query = Form::query();
+
+        // Admins have full visibility; everyone else only sees forms they own or were shared into.
+        if (! $user->isAdmin()) {
+            $query->where(fn ($q) => $q
+                ->where('user_id', $user->id)
+                ->orWhereHas('shares', fn ($shares) => $shares->where('user_id', $user->id))
+            );
+        }
+
+        $forms = $query->with('user:id,name')
             ->withCount('responses')
             ->latest('updated_at')
             ->get();
+
+        $sharedFormIds = $user->sharedForms()->pluck('forms.id')->all();
 
         return Inertia::render('forms/Index', [
             'forms' => $forms->map(fn (Form $form) => [
@@ -30,6 +46,10 @@ class FormController extends Controller
                 'responses_count' => $form->responses_count,
                 'expires_at' => $form->expires_at,
                 'updated_at' => $form->updated_at,
+                'is_owner' => $form->user_id === $user->id,
+                'is_shared_with_me' => in_array($form->id, $sharedFormIds, true),
+                'owner_name' => $form->user->name,
+                'can_delete' => $user->isAdmin() || $form->user_id === $user->id,
             ]),
         ]);
     }
@@ -51,7 +71,7 @@ class FormController extends Controller
         $this->authorize('update', $form);
 
         return Inertia::render('forms/Edit', [
-            'form' => $this->formPayload($form),
+            'form' => $this->formPayload($form, $request->user()),
             'fieldTypes' => FormField::TYPES,
             'defaultRetentionDays' => (int) Setting::get('default_retention_days', config('formulaires.default_retention_days')),
             'maxUploadKb' => (int) config('formulaires.max_upload_kb'),
@@ -182,9 +202,12 @@ class FormController extends Controller
         return back()->with('success', __('messages.saved'));
     }
 
-    private function formPayload(Form $form): array
+    private function formPayload(Form $form, User $user): array
     {
-        $form->load(['sections.fields']);
+        $form->load(['sections.fields', 'user:id,name,email']);
+
+        $isOwner = $form->user_id === $user->id;
+        $canManageShares = $user->can('manageShares', $form);
 
         return [
             'id' => $form->id,
@@ -202,6 +225,24 @@ class FormController extends Controller
             'success_message' => $form->success_message,
             'public_url' => route('public.forms.show', $form->slug),
             'responses_count' => $form->responses()->count(),
+            'is_owner' => $isOwner,
+            'is_shared_with_me' => ! $isOwner && $form->shares()->where('user_id', $user->id)->exists(),
+            'can_manage_shares' => $canManageShares,
+            'owner' => [
+                'name' => $form->user->name,
+                'email' => $form->user->email,
+            ],
+            'shares' => $canManageShares
+                ? $form->shares()->with('user:id,name,email,avatar')->get()->map(fn (FormShare $share) => [
+                    'id' => $share->id,
+                    'user' => [
+                        'id' => $share->user->id,
+                        'name' => $share->user->name,
+                        'email' => $share->user->email,
+                        'avatar' => $share->user->avatar,
+                    ],
+                ])
+                : null,
             'sections' => $form->sections->map(fn ($section) => [
                 'id' => $section->id,
                 'title' => $section->title,

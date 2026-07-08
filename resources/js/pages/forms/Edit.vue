@@ -36,7 +36,9 @@ import {
     Save,
     Settings2,
     TextCursorInput,
+    Trash2,
     Type,
+    Users,
 } from 'lucide-vue-next';
 import { computed, nextTick, reactive, ref, watch } from 'vue';
 import draggable from 'vuedraggable';
@@ -186,6 +188,27 @@ const saveSettings = () => {
 };
 
 /* ------------------------------------------------------------------ */
+/* Sharing                                                             */
+/* ------------------------------------------------------------------ */
+
+const shareOpen = ref(false);
+
+const shareForm = useForm({
+    email: '',
+});
+
+const submitShare = () => {
+    shareForm.post(route('forms.shares.store', props.form.id), {
+        preserveScroll: true,
+        onSuccess: () => shareForm.reset(),
+    });
+};
+
+const removeShare = (shareId: number) => {
+    router.delete(route('forms.shares.destroy', [props.form.id, shareId]), { preserveScroll: true });
+};
+
+/* ------------------------------------------------------------------ */
 /* Logo                                                                */
 /* ------------------------------------------------------------------ */
 
@@ -262,9 +285,20 @@ const statusLabel = computed(() => {
                         {{ statusLabel }}
                     </span>
                     <span class="text-sm text-muted-foreground">{{ form.responses_count }} {{ $t('response(s)') }}</span>
+                    <span v-if="form.is_shared_with_me" class="text-sm text-muted-foreground">
+                        {{ $t('Shared by :name', { name: form.owner.name }) }}
+                    </span>
+                    <span v-else-if="!form.is_owner" class="text-sm text-muted-foreground">
+                        {{ $t('Owned by :name', { name: form.owner.name }) }}
+                    </span>
                 </div>
 
                 <div class="flex flex-wrap items-center gap-2">
+                    <Button v-if="form.can_manage_shares" variant="outline" size="sm" @click="shareOpen = true">
+                        <Users class="mr-1 h-4 w-4" />
+                        {{ $t('Share') }}
+                    </Button>
+
                     <Button variant="outline" size="sm" @click="settingsOpen = true">
                         <Settings2 class="mr-1 h-4 w-4" />
                         {{ $t('Settings') }}
@@ -543,6 +577,49 @@ const statusLabel = computed(() => {
                 <DialogFooter>
                     <Button variant="outline" @click="settingsOpen = false">{{ $t('Cancel') }}</Button>
                     <Button :disabled="settingsForm.processing" @click="saveSettings">{{ $t('Save') }}</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        <!-- Share dialog -->
+        <Dialog v-model:open="shareOpen">
+            <DialogContent class="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>{{ $t('Share this form') }}</DialogTitle>
+                    <DialogDescription>
+                        {{ $t('People you add can edit this form and view its responses.') }}
+                    </DialogDescription>
+                </DialogHeader>
+
+                <form class="flex items-start gap-2" @submit.prevent="submitShare">
+                    <div class="flex-1">
+                        <Input v-model="shareForm.email" type="email" required :placeholder="$t('Email address')" />
+                        <InputError :message="shareForm.errors.email" />
+                    </div>
+                    <Button type="submit" :disabled="shareForm.processing">{{ $t('Add') }}</Button>
+                </form>
+
+                <div v-if="form.shares && form.shares.length > 0" class="flex flex-col divide-y rounded-md border">
+                    <div v-for="share in form.shares" :key="share.id" class="flex items-center justify-between gap-3 px-3 py-2">
+                        <div class="flex flex-col">
+                            <span class="text-sm font-medium">{{ share.user.name }}</span>
+                            <span class="text-xs text-muted-foreground">{{ share.user.email }}</span>
+                        </div>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            class="text-muted-foreground hover:text-red-600"
+                            :aria-label="$t('Remove')"
+                            @click="removeShare(share.id)"
+                        >
+                            <Trash2 class="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+                <p v-else class="text-sm text-muted-foreground">{{ $t('Not shared with anyone yet.') }}</p>
+
+                <DialogFooter>
+                    <Button variant="outline" @click="shareOpen = false">{{ $t('Close') }}</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

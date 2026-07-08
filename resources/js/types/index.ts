@@ -74,6 +74,16 @@ export interface FormSectionData {
 
 export type FormStatus = 'draft' | 'published' | 'closed';
 
+export interface FormShareData {
+    id: number;
+    user: {
+        id: number;
+        name: string;
+        email: string;
+        avatar: string | null;
+    };
+}
+
 export interface FormData {
     id: number;
     slug: string;
@@ -90,6 +100,11 @@ export interface FormData {
     success_message: string | null;
     public_url: string;
     responses_count: number;
+    is_owner: boolean;
+    is_shared_with_me: boolean;
+    can_manage_shares: boolean;
+    owner: { name: string; email: string };
+    shares: FormShareData[] | null;
     sections: FormSectionData[];
 }
 

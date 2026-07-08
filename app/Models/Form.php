@@ -6,6 +6,7 @@ use Database\Factories\FormFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -80,6 +81,16 @@ class Form extends Model
     public function responses(): HasMany
     {
         return $this->hasMany(Response::class);
+    }
+
+    public function shares(): HasMany
+    {
+        return $this->hasMany(FormShare::class);
+    }
+
+    public function collaborators(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'form_shares')->withTimestamps();
     }
 
     public function isOpen(): bool
