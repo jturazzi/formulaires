@@ -95,7 +95,7 @@ class FormResponseController extends Controller
                         }
 
                         if ($field->type === 'file') {
-                            return $answer->file_name ?? '';
+                            return $answer->file_path ? route('answers.file', ['answer' => $answer, 'preview' => 1]) : '';
                         }
 
                         return is_array($answer->value) ? implode(', ', $answer->value) : (string) $answer->value;
@@ -114,6 +114,10 @@ class FormResponseController extends Controller
         $this->authorize('view', $form);
 
         abort_unless($answer->file_path, 404);
+
+        if ($request->boolean('preview')) {
+            return Storage::disk('local')->response($answer->file_path, $answer->file_name);
+        }
 
         return Storage::disk('local')->download($answer->file_path, $answer->file_name);
     }

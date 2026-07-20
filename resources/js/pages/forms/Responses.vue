@@ -5,7 +5,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
-import { Download, Eye, FileDown, MailCheck, Trash2 } from 'lucide-vue-next';
+import { Download, Eye, ExternalLink, FileDown, MailCheck, Trash2 } from 'lucide-vue-next';
 import { ref } from 'vue';
 
 interface ResponseAnswer {
@@ -65,6 +65,8 @@ const displayValue = (answer: ResponseAnswer | undefined) => {
 
     return answer.value ?? '—';
 };
+
+const previewUrl = (answer: ResponseAnswer) => `${answer.file_url}?preview=1`;
 
 const formatDateTime = (value: string) => new Date(value).toLocaleString();
 
@@ -195,14 +197,27 @@ const goToPage = (pageNumber: number) => {
                     <div v-for="field in fields" :key="field.id" class="grid gap-1">
                         <p class="text-sm font-medium">{{ field.label }}</p>
                         <template v-if="answerFor(selected, field.id)?.file_url">
-                            <a
-                                :href="answerFor(selected, field.id)!.file_url!"
-                                class="inline-flex w-fit items-center gap-2 rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
-                            >
-                                <Download class="h-4 w-4" />
-                                {{ answerFor(selected, field.id)!.file_name }}
-                                <span class="text-xs text-muted-foreground">{{ formatSize(answerFor(selected, field.id)!.file_size) }}</span>
-                            </a>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <a
+                                    :href="previewUrl(answerFor(selected, field.id)!)"
+                                    target="_blank"
+                                    rel="noopener"
+                                    class="inline-flex w-fit items-center gap-2 rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
+                                >
+                                    <ExternalLink class="h-4 w-4" />
+                                    {{ $t('Preview') }}
+                                </a>
+                                <a
+                                    :href="answerFor(selected, field.id)!.file_url!"
+                                    class="inline-flex w-fit items-center gap-2 rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
+                                >
+                                    <Download class="h-4 w-4" />
+                                    {{ $t('Download') }}
+                                </a>
+                            </div>
+                            <p class="text-xs text-muted-foreground">
+                                {{ answerFor(selected, field.id)!.file_name }} · {{ formatSize(answerFor(selected, field.id)!.file_size) }}
+                            </p>
                         </template>
                         <p v-else class="whitespace-pre-line text-sm text-muted-foreground">{{ displayValue(answerFor(selected, field.id)) }}</p>
                     </div>

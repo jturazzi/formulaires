@@ -29,6 +29,7 @@ import {
     FileUp,
     Hash,
     ImageIcon,
+    Inbox,
     LinkIcon,
     ListPlus,
     Mail,
@@ -325,6 +326,13 @@ const statusLabel = computed(() => {
                 </div>
 
                 <div class="flex flex-wrap items-center gap-2">
+                    <Button variant="outline" size="sm" as-child>
+                        <a :href="route('forms.responses.index', form.id)">
+                            <Inbox class="mr-1 h-4 w-4" />
+                            {{ $t('Responses') }}
+                        </a>
+                    </Button>
+
                     <Button v-if="form.can_manage_shares" variant="outline" size="sm" @click="shareOpen = true">
                         <Users class="mr-1 h-4 w-4" />
                         {{ $t('Share') }}
