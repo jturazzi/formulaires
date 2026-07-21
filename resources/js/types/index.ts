@@ -54,6 +54,11 @@ export interface FieldOptions {
     choices?: string[];
     max_length?: number;
     multiple?: boolean;
+    min?: number;
+    max?: number;
+    min_date?: string;
+    max_date?: string;
+    allow_other?: boolean;
 }
 
 export interface FormFieldData {

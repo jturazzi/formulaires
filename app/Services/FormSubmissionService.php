@@ -37,13 +37,27 @@ class FormSubmissionService
             $options = $field->options ?? [];
             $choices = $options['choices'] ?? [];
 
+            $allowOther = (bool) ($options['allow_other'] ?? false);
+
             $rules[$key] = match ($field->type) {
                 'text' => [$required, 'string', 'max:'.($options['max_length'] ?? 255)],
                 'textarea' => [$required, 'string', 'max:'.($options['max_length'] ?? 5000)],
                 'email' => [$required, 'email:filter', 'max:255'],
-                'number' => [$required, 'numeric'],
-                'date' => [$required, 'date'],
-                'choice', 'dropdown' => [$required, 'string', Rule::in($choices)],
+                'number' => [
+                    $required,
+                    'numeric',
+                    ...(isset($options['min']) ? ['min:'.$options['min']] : []),
+                    ...(isset($options['max']) ? ['max:'.$options['max']] : []),
+                ],
+                'date' => [
+                    $required,
+                    'date',
+                    ...(isset($options['min_date']) ? ['after_or_equal:'.$options['min_date']] : []),
+                    ...(isset($options['max_date']) ? ['before_or_equal:'.$options['max_date']] : []),
+                ],
+                'choice', 'dropdown' => $allowOther
+                    ? [$required, 'string', 'max:500']
+                    : [$required, 'string', Rule::in($choices)],
                 'checkboxes' => [$required, 'array', ...($field->required ? ['min:1'] : [])],
                 'file' => [
                     $required,
@@ -55,7 +69,7 @@ class FormSubmissionService
             };
 
             if ($field->type === 'checkboxes') {
-                $rules["{$key}.*"] = ['string', Rule::in($choices)];
+                $rules["{$key}.*"] = $allowOther ? ['string', 'max:500'] : ['string', Rule::in($choices)];
             }
         }
 

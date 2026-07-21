@@ -32,6 +32,8 @@ const typeLabels: Record<FieldType, string> = {
 };
 
 const hasChoices = computed(() => ['choice', 'checkboxes', 'dropdown'].includes(props.field.type));
+const hasMaxLength = computed(() => ['text', 'textarea'].includes(props.field.type));
+const defaultMaxLength = computed(() => (props.field.type === 'textarea' ? 5000 : 255));
 
 const choices = computed(() => props.field.options?.choices ?? []);
 
@@ -40,20 +42,62 @@ const ensureOptions = () => {
         props.field.options = {};
     }
 
-    if (!props.field.options.choices) {
-        props.field.options.choices = [];
-    }
-
     return props.field.options;
 };
 
-const addChoice = () => {
+const ensureChoices = () => {
     const options = ensureOptions();
+
+    if (!options.choices) {
+        options.choices = [];
+    }
+
+    return options;
+};
+
+const maxLength = computed({
+    get: () => props.field.options?.max_length ?? null,
+    set: (value: number | string | null) => {
+        ensureOptions().max_length = typeof value === 'number' && !isNaN(value) ? value : undefined;
+    },
+});
+
+const numericOption = (key: 'min' | 'max') =>
+    computed({
+        get: () => props.field.options?.[key] ?? null,
+        set: (value: number | string | null) => {
+            ensureOptions()[key] = typeof value === 'number' && !isNaN(value) ? value : undefined;
+        },
+    });
+
+const minValue = numericOption('min');
+const maxValue = numericOption('max');
+
+const dateOption = (key: 'min_date' | 'max_date') =>
+    computed({
+        get: () => props.field.options?.[key] ?? '',
+        set: (value: string) => {
+            ensureOptions()[key] = value || undefined;
+        },
+    });
+
+const minDate = dateOption('min_date');
+const maxDate = dateOption('max_date');
+
+const allowOther = computed({
+    get: () => props.field.options?.allow_other ?? false,
+    set: (value: boolean) => {
+        ensureOptions().allow_other = value;
+    },
+});
+
+const addChoice = () => {
+    const options = ensureChoices();
     options.choices!.push(`${trans('Option')} ${options.choices!.length + 1}`);
 };
 
 const removeChoice = (index: number) => {
-    ensureOptions().choices!.splice(index, 1);
+    ensureChoices().choices!.splice(index, 1);
 };
 </script>
 
@@ -91,6 +135,33 @@ const removeChoice = (index: number) => {
                     <Input v-model="field.description" :placeholder="$t('Shown under the question')" />
                 </div>
 
+                <div v-if="hasMaxLength" class="grid gap-2">
+                    <Label class="text-muted-foreground">{{ $t('Maximum characters (optional)') }}</Label>
+                    <Input v-model.number="maxLength" type="number" min="1" max="10000" class="w-32" :placeholder="String(defaultMaxLength)" />
+                </div>
+
+                <div v-if="field.type === 'number'" class="flex items-end gap-3">
+                    <div class="grid gap-2">
+                        <Label class="text-muted-foreground">{{ $t('Minimum (optional)') }}</Label>
+                        <Input v-model.number="minValue" type="number" class="w-28" />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label class="text-muted-foreground">{{ $t('Maximum (optional)') }}</Label>
+                        <Input v-model.number="maxValue" type="number" class="w-28" />
+                    </div>
+                </div>
+
+                <div v-if="field.type === 'date'" class="flex items-end gap-3">
+                    <div class="grid gap-2">
+                        <Label class="text-muted-foreground">{{ $t('Earliest date (optional)') }}</Label>
+                        <Input v-model="minDate" type="date" class="w-40" />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label class="text-muted-foreground">{{ $t('Latest date (optional)') }}</Label>
+                        <Input v-model="maxDate" type="date" class="w-40" />
+                    </div>
+                </div>
+
                 <div v-if="hasChoices" class="grid gap-2">
                     <Label>{{ $t('Choices') }}</Label>
                     <div v-for="(choice, index) in choices" :key="index" class="flex items-center gap-2">
@@ -109,6 +180,12 @@ const removeChoice = (index: number) => {
                         <Plus class="mr-1 h-4 w-4" />
                         {{ $t('Add choice') }}
                     </Button>
+                    <div class="mt-1 flex items-center gap-2">
+                        <Checkbox :id="`allow-other-${field.id ?? 'new'}`" v-model:checked="allowOther" />
+                        <Label :for="`allow-other-${field.id ?? 'new'}`" class="font-normal text-muted-foreground">
+                            {{ $t('Allow respondents to enter a free-text "Other" answer') }}
+                        </Label>
+                    </div>
                 </div>
 
                 <p v-if="field.type === 'file'" class="text-xs text-muted-foreground">

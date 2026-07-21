@@ -59,6 +59,55 @@ test('the builder can replace the whole structure', function () {
         ->and($existingField->fresh()->required)->toBeTrue();
 });
 
+test('the builder can save max length, min/max and date range options', function () {
+    $user = User::factory()->create();
+    $form = Form::factory()->for($user)->create();
+    $section = $form->sections()->create(['position' => 0]);
+
+    $this->actingAs($user)
+        ->put(route('forms.structure.update', $form), [
+            'sections' => [
+                [
+                    'id' => $section->id,
+                    'fields' => [
+                        ['id' => null, 'type' => 'textarea', 'label' => 'Message', 'options' => ['max_length' => 500]],
+                        ['id' => null, 'type' => 'number', 'label' => 'Âge', 'options' => ['min' => 18, 'max' => 99]],
+                        ['id' => null, 'type' => 'date', 'label' => 'Naissance', 'options' => ['min_date' => '2000-01-01', 'max_date' => '2010-12-31']],
+                        ['id' => null, 'type' => 'choice', 'label' => 'Couleur', 'options' => ['choices' => ['Rouge'], 'allow_other' => true]],
+                    ],
+                ],
+            ],
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $fields = $form->fresh()->fields()->orderBy('id')->get();
+
+    expect($fields[0]->options)->toBe(['max_length' => 500])
+        ->and($fields[1]->options)->toBe(['min' => 18, 'max' => 99])
+        ->and($fields[2]->options)->toBe(['min_date' => '2000-01-01', 'max_date' => '2010-12-31'])
+        ->and($fields[3]->options)->toBe(['choices' => ['Rouge'], 'allow_other' => true]);
+});
+
+test('a number field max option must be greater than or equal to its min option', function () {
+    $user = User::factory()->create();
+    $form = Form::factory()->for($user)->create();
+    $section = $form->sections()->create(['position' => 0]);
+
+    $this->actingAs($user)
+        ->put(route('forms.structure.update', $form), [
+            'sections' => [
+                [
+                    'id' => $section->id,
+                    'fields' => [
+                        ['id' => null, 'type' => 'number', 'label' => 'Âge', 'options' => ['min' => 50, 'max' => 10]],
+                    ],
+                ],
+            ],
+        ])
+        ->assertSessionHasErrors('sections.0.fields.0.options.max');
+});
+
 test('removed fields are deleted from the structure', function () {
     $user = User::factory()->create();
     $form = Form::factory()->for($user)->create();

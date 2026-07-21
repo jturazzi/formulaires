@@ -78,6 +78,47 @@ test('choice answers must belong to the configured choices', function () {
     ])->assertSessionHasErrors("answers.{$field->id}");
 });
 
+test('a free-text "other" choice answer is accepted when allowed', function () {
+    $form = publishedForm();
+    $field = FormField::factory()->for($form)->type('choice')->create([
+        'form_section_id' => $form->sections->first()->id,
+        'options' => ['choices' => ['Rouge', 'Vert'], 'allow_other' => true],
+    ]);
+
+    $this->post("/f/{$form->slug}", [
+        'consent' => true,
+        'answers' => [$field->id => 'Turquoise'],
+    ])->assertRedirect(route('public.forms.thanks', $form->slug));
+
+    expect(Response::first()->answers->first()->value)->toBe('Turquoise');
+});
+
+test('number answers are validated against min and max', function () {
+    $form = publishedForm();
+    $field = FormField::factory()->for($form)->type('number')->create([
+        'form_section_id' => $form->sections->first()->id,
+        'options' => ['min' => 1, 'max' => 10],
+    ]);
+
+    $this->post("/f/{$form->slug}", [
+        'consent' => true,
+        'answers' => [$field->id => 42],
+    ])->assertSessionHasErrors("answers.{$field->id}");
+});
+
+test('date answers are validated against min and max date', function () {
+    $form = publishedForm();
+    $field = FormField::factory()->for($form)->type('date')->create([
+        'form_section_id' => $form->sections->first()->id,
+        'options' => ['min_date' => '2026-01-01', 'max_date' => '2026-12-31'],
+    ]);
+
+    $this->post("/f/{$form->slug}", [
+        'consent' => true,
+        'answers' => [$field->id => '2027-01-01'],
+    ])->assertSessionHasErrors("answers.{$field->id}");
+});
+
 test('a visitor can upload a file', function () {
     Storage::fake('local');
 

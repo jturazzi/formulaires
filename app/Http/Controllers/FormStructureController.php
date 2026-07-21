@@ -36,6 +36,11 @@ class FormStructureController extends Controller
             'sections.*.fields.*.options.choices.*' => ['required', 'string', 'max:500'],
             'sections.*.fields.*.options.multiple' => ['nullable', 'boolean'],
             'sections.*.fields.*.options.max_length' => ['nullable', 'integer', 'min:1', 'max:10000'],
+            'sections.*.fields.*.options.min' => ['nullable', 'numeric'],
+            'sections.*.fields.*.options.max' => ['nullable', 'numeric', 'gte:sections.*.fields.*.options.min'],
+            'sections.*.fields.*.options.min_date' => ['nullable', 'date'],
+            'sections.*.fields.*.options.max_date' => ['nullable', 'date', 'after_or_equal:sections.*.fields.*.options.min_date'],
+            'sections.*.fields.*.options.allow_other' => ['nullable', 'boolean'],
         ]);
 
         DB::transaction(function () use ($form, $validated) {

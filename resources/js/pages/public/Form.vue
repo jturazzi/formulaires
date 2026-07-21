@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { type SharedData } from '@/types';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { LoaderCircle, MailCheck } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 
 interface PublicField {
     id: number;
@@ -15,7 +15,15 @@ interface PublicField {
     label: string;
     description: string | null;
     required: boolean;
-    options: { choices?: string[]; max_length?: number } | null;
+    options: {
+        choices?: string[];
+        max_length?: number;
+        min?: number;
+        max?: number;
+        min_date?: string;
+        max_date?: string;
+        allow_other?: boolean;
+    } | null;
 }
 
 interface PublicSection {
@@ -81,6 +89,51 @@ const toggleCheckbox = (fieldId: number, choice: string, checked: boolean) => {
 };
 
 const isChecked = (fieldId: number, choice: string) => ((submission.answers[fieldId] as string[] | undefined) ?? []).includes(choice);
+
+/* "Other" free-text answers -------------------------------------------- */
+
+const OTHER_VALUE = '__other__';
+
+// Single-value fields (radio / dropdown): whether the respondent picked "Other".
+const otherActive = reactive<Record<number, boolean>>({});
+
+const selectChoice = (fieldId: number, choice: string) => {
+    otherActive[fieldId] = false;
+    submission.answers[fieldId] = choice;
+};
+
+const selectOtherChoice = (fieldId: number) => {
+    if (!otherActive[fieldId]) {
+        submission.answers[fieldId] = '';
+    }
+    otherActive[fieldId] = true;
+};
+
+const selectDropdownValue = (fieldId: number) => (otherActive[fieldId] ? OTHER_VALUE : ((submission.answers[fieldId] as string | undefined) ?? ''));
+
+const onDropdownChange = (fieldId: number, value: string) => (value === OTHER_VALUE ? selectOtherChoice(fieldId) : selectChoice(fieldId, value));
+
+// Checkboxes (multi-value): the "Other" entry is tracked separately then merged into the answers array.
+const otherChecked = reactive<Record<number, boolean>>({});
+const otherText = reactive<Record<number, string>>({});
+
+const syncOtherCheckboxValue = (fieldId: number, previousText: string) => {
+    const current = ((submission.answers[fieldId] as string[] | undefined) ?? []).filter((item) => item !== previousText);
+    const text = otherText[fieldId] ?? '';
+    submission.answers[fieldId] = otherChecked[fieldId] && text ? [...current, text] : current;
+};
+
+const toggleOtherCheckbox = (fieldId: number, checked: boolean) => {
+    const previousText = otherChecked[fieldId] ? (otherText[fieldId] ?? '') : '';
+    otherChecked[fieldId] = checked;
+    syncOtherCheckboxValue(fieldId, previousText);
+};
+
+const updateOtherCheckboxText = (fieldId: number, text: string) => {
+    const previousText = otherText[fieldId] ?? '';
+    otherText[fieldId] = text;
+    syncOtherCheckboxValue(fieldId, previousText);
+};
 
 const answerError = (fieldId: number) => (submission.errors as Record<string, string>)[`answers.${fieldId}`];
 
@@ -221,6 +274,8 @@ const submit = () => {
                                     :id="`field-${field.id}`"
                                     v-model="submission.answers[field.id] as string"
                                     type="number"
+                                    :min="field.options?.min"
+                                    :max="field.options?.max"
                                     :required="field.required"
                                     :class="errorClass(field.id)"
                                 />
@@ -230,6 +285,8 @@ const submit = () => {
                                     :id="`field-${field.id}`"
                                     v-model="submission.answers[field.id] as string"
                                     type="date"
+                                    :min="field.options?.min_date"
+                                    :max="field.options?.max_date"
                                     :required="field.required"
                                     :class="errorClass(field.id)"
                                 />
@@ -242,16 +299,37 @@ const submit = () => {
                                         :class="errorClass(field.id)"
                                     >
                                         <input
-                                            v-model="submission.answers[field.id]"
                                             type="radio"
                                             :name="`field-${field.id}`"
-                                            :value="choice"
+                                            :checked="!otherActive[field.id] && submission.answers[field.id] === choice"
                                             :required="field.required"
                                             class="h-4 w-4"
                                             :style="{ accentColor: accent }"
+                                            @change="selectChoice(field.id, choice)"
                                         />
                                         <span class="text-sm">{{ choice }}</span>
                                     </label>
+                                    <template v-if="field.options?.allow_other">
+                                        <label
+                                            class="flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                                        >
+                                            <input
+                                                type="radio"
+                                                :name="`field-${field.id}`"
+                                                :checked="!!otherActive[field.id]"
+                                                class="h-4 w-4"
+                                                :style="{ accentColor: accent }"
+                                                @change="selectOtherChoice(field.id)"
+                                            />
+                                            <span class="text-sm">{{ $t('Other') }}</span>
+                                        </label>
+                                        <Input
+                                            v-if="otherActive[field.id]"
+                                            v-model="submission.answers[field.id] as string"
+                                            :placeholder="$t('Please specify')"
+                                            :required="field.required"
+                                        />
+                                    </template>
                                 </div>
 
                                 <div v-else-if="field.type === 'checkboxes'" class="grid gap-2">
@@ -270,19 +348,48 @@ const submit = () => {
                                         />
                                         <span class="text-sm">{{ choice }}</span>
                                     </label>
+                                    <template v-if="field.options?.allow_other">
+                                        <label
+                                            class="flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                :checked="!!otherChecked[field.id]"
+                                                class="h-4 w-4 rounded"
+                                                :style="{ accentColor: accent }"
+                                                @change="toggleOtherCheckbox(field.id, ($event.target as HTMLInputElement).checked)"
+                                            />
+                                            <span class="text-sm">{{ $t('Other') }}</span>
+                                        </label>
+                                        <Input
+                                            v-if="otherChecked[field.id]"
+                                            :model-value="otherText[field.id] ?? ''"
+                                            :placeholder="$t('Please specify')"
+                                            @update:model-value="updateOtherCheckboxText(field.id, String($event))"
+                                        />
+                                    </template>
                                 </div>
 
                                 <select
                                     v-else-if="field.type === 'dropdown'"
                                     :id="`field-${field.id}`"
-                                    v-model="submission.answers[field.id]"
+                                    :value="selectDropdownValue(field.id)"
                                     :required="field.required"
                                     class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                     :class="errorClass(field.id)"
+                                    @change="onDropdownChange(field.id, ($event.target as HTMLSelectElement).value)"
                                 >
-                                    <option value="" disabled selected>{{ $t('Select…') }}</option>
+                                    <option value="" disabled>{{ $t('Select…') }}</option>
                                     <option v-for="choice in field.options?.choices ?? []" :key="choice" :value="choice">{{ choice }}</option>
+                                    <option v-if="field.options?.allow_other" :value="OTHER_VALUE">{{ $t('Other…') }}</option>
                                 </select>
+                                <Input
+                                    v-if="field.type === 'dropdown' && otherActive[field.id]"
+                                    v-model="submission.answers[field.id] as string"
+                                    class="mt-2"
+                                    :placeholder="$t('Please specify')"
+                                    :required="field.required"
+                                />
 
                                 <input
                                     v-else-if="field.type === 'file'"
