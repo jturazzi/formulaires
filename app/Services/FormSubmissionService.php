@@ -16,7 +16,7 @@ class FormSubmissionService
      *
      * @return array<string, array<int, mixed>>
      */
-    public function rules(Form $form): array
+    public function rules(Form $form, Request $request): array
     {
         $rules = [
             'consent' => ['accepted'],
@@ -27,12 +27,26 @@ class FormSubmissionService
             $rules['code'] = ['required', 'digits:6'];
         }
 
+        $fieldsById = $form->fields->keyBy('id');
+        $rawValues = $this->rawAnswerValues($form, $request);
+
         foreach ($form->fields as $field) {
             if (! $field->isInput()) {
                 continue;
             }
 
             $key = "answers.{$field->id}";
+
+            if (! $field->isVisible($fieldsById, $rawValues)) {
+                $rules[$key] = ['nullable'];
+
+                if ($field->type === 'checkboxes') {
+                    $rules["{$key}.*"] = ['nullable'];
+                }
+
+                continue;
+            }
+
             $required = $field->required ? 'required' : 'nullable';
             $options = $field->options ?? [];
             $choices = $options['choices'] ?? [];
@@ -77,6 +91,20 @@ class FormSubmissionService
     }
 
     /**
+     * Human-readable names for the "answers.{id}" validation keys, so error
+     * messages reference the actual question instead of a raw field id.
+     *
+     * @return array<string, string>
+     */
+    public function attributes(Form $form): array
+    {
+        return $form->fields
+            ->filter(fn ($field) => $field->isInput())
+            ->mapWithKeys(fn ($field) => ["answers.{$field->id}" => $field->label])
+            ->all();
+    }
+
+    /**
      * Persist a validated submission: response, answers and uploaded files.
      */
     public function store(Form $form, Request $request, array $validated): Response
@@ -89,8 +117,17 @@ class FormSubmissionService
                 'submitted_at' => now(),
             ]);
 
+            $fieldsById = $form->fields->keyBy('id');
+            $rawValues = $this->rawAnswerValues($form, $request);
+
             foreach ($form->fields as $field) {
                 if (! $field->isInput()) {
+                    continue;
+                }
+
+                // A field hidden by its visibility conditions never gets a stored
+                // answer, even if a value slipped through in the request payload.
+                if (! $field->isVisible($fieldsById, $rawValues)) {
                     continue;
                 }
 
@@ -123,5 +160,24 @@ class FormSubmissionService
 
             return $response;
         });
+    }
+
+    /**
+     * Raw (unvalidated) submitted value per field id, used to evaluate
+     * visibility conditions before/independently of the validated payload.
+     *
+     * @return array<int, mixed>
+     */
+    private function rawAnswerValues(Form $form, Request $request): array
+    {
+        $values = [];
+
+        foreach ($form->fields as $field) {
+            $values[$field->id] = $field->type === 'file'
+                ? ($request->hasFile("answers.{$field->id}") ? '1' : null)
+                : $request->input("answers.{$field->id}");
+        }
+
+        return $values;
     }
 }

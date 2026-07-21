@@ -159,15 +159,37 @@ class FormController extends Controller
             }
         }
 
+        $fieldIdMap = [];
+        $fieldsWithVisibility = [];
+
         foreach ($form->sections()->with('fields')->get() as $section) {
             $newSection = $copy->sections()->create($section->only(['title', 'description', 'position']));
 
             foreach ($section->fields as $field) {
-                $copy->fields()->create([
+                $newField = $copy->fields()->create([
                     ...$field->only(['type', 'label', 'description', 'required', 'options', 'position']),
                     'form_section_id' => $newSection->id,
                 ]);
+
+                $fieldIdMap[$field->id] = $newField->id;
+
+                if ($field->visibility) {
+                    $fieldsWithVisibility[] = [$newField, $field->visibility];
+                }
             }
+        }
+
+        // Visibility conditions reference field ids from the original form;
+        // remap them to the freshly created copies (dropping conditions on
+        // fields that, for whatever reason, weren't duplicated).
+        foreach ($fieldsWithVisibility as [$newField, $visibility]) {
+            $conditions = collect($visibility['conditions'] ?? [])
+                ->filter(fn (array $condition) => isset($fieldIdMap[$condition['field_id']]))
+                ->map(fn (array $condition) => [...$condition, 'field_id' => $fieldIdMap[$condition['field_id']]])
+                ->values()
+                ->all();
+
+            $newField->update(['visibility' => $conditions ? [...$visibility, 'conditions' => $conditions] : null]);
         }
 
         return redirect()->route('forms.edit', $copy)->with('success', __('messages.form_duplicated'));
@@ -259,6 +281,7 @@ class FormController extends Controller
                     'description' => $field->description,
                     'required' => $field->required,
                     'options' => $field->options,
+                    'visibility' => $field->visibility,
                 ]),
             ]),
         ];

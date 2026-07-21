@@ -16,7 +16,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/AppLayout.vue';
-import { type BreadcrumbItem, type FieldType, type FormData, type FormSectionData } from '@/types';
+import { type BreadcrumbItem, type FieldType, type FormData, type FormFieldData, type FormSectionData } from '@/types';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 import {
@@ -66,11 +66,40 @@ const structureDirty = ref(false);
 const savingStructure = ref(false);
 const syncing = ref(false);
 const structureError = ref<string | null>(null);
+const structureFieldErrors = ref<Record<string, string>>({});
 
 const markDirty = () => {
     if (!syncing.value) {
         structureDirty.value = true;
     }
+};
+
+// Errors for a given section (e.g. "sections.1.title" → "title").
+const sectionErrors = (sectionIndex: number): Record<string, string> => {
+    const prefix = `sections.${sectionIndex}.`;
+    const result: Record<string, string> = {};
+
+    for (const [key, message] of Object.entries(structureFieldErrors.value)) {
+        if (key.startsWith(prefix) && !key.startsWith(`${prefix}fields.`)) {
+            result[key.slice(prefix.length)] = message;
+        }
+    }
+
+    return result;
+};
+
+// Errors for a given field (e.g. "sections.1.fields.2.label" → "label").
+const fieldErrorsFor = (sectionIndex: number, fieldIndex: number): Record<string, string> => {
+    const prefix = `sections.${sectionIndex}.fields.${fieldIndex}.`;
+    const result: Record<string, string> = {};
+
+    for (const [key, message] of Object.entries(structureFieldErrors.value)) {
+        if (key.startsWith(prefix)) {
+            result[key.slice(prefix.length)] = message;
+        }
+    }
+
+    return result;
 };
 
 // Any edit inside the tree (labels, options, order…) marks the structure dirty.
@@ -104,9 +133,19 @@ const addField = (section: FormSectionData, type: FieldType) => {
         description: null,
         required: false,
         options: ['choice', 'checkboxes', 'dropdown'].includes(type) ? { choices: [trans('Option') + ' 1'] } : null,
+        visibility: null,
     });
     markDirty();
 };
+
+// Fields other questions can set a visibility condition on. Only already-saved
+// fields (real ids) are eligible, since a brand-new field's id doesn't exist
+// yet until the structure is saved once.
+const conditionableFields = computed(() =>
+    sections
+        .flatMap((section) => section.fields)
+        .filter((field): field is FormFieldData & { id: number } => field.id !== null && field.type !== 'info'),
+);
 
 const removeField = (section: FormSectionData, index: number) => {
     section.fields.splice(index, 1);
@@ -126,6 +165,7 @@ const removeSection = (index: number) => {
 const saveStructure = () => {
     savingStructure.value = true;
     structureError.value = null;
+    structureFieldErrors.value = {};
 
     router.put(
         route('forms.structure.update', props.form.id),
@@ -139,6 +179,7 @@ const saveStructure = () => {
                 structureDirty.value = false;
             },
             onError: (errors) => {
+                structureFieldErrors.value = errors as Record<string, string>;
                 structureError.value = Object.values(errors)[0] ?? trans('An error occurred while saving.');
             },
             onFinish: () => (savingStructure.value = false),
@@ -434,15 +475,19 @@ const statusLabel = computed(() => {
                                 <Input
                                     v-model="section.title"
                                     class="border-0 px-0 text-base font-semibold shadow-none focus-visible:ring-0"
+                                    :class="sectionErrors(sectionIndex).title ? 'ring-1 ring-red-500' : ''"
                                     :placeholder="$t('Section title (optional)')"
                                     @input="markDirty"
                                 />
+                                <InputError :message="sectionErrors(sectionIndex).title" />
                                 <Input
                                     v-model="section.description"
                                     class="h-8 border-0 px-0 text-sm shadow-none focus-visible:ring-0"
+                                    :class="sectionErrors(sectionIndex).description ? 'ring-1 ring-red-500' : ''"
                                     :placeholder="$t('Section description (optional)')"
                                     @input="markDirty"
                                 />
+                                <InputError :message="sectionErrors(sectionIndex).description" />
                             </div>
                             <Button
                                 v-if="sections.length > 1"
@@ -464,7 +509,13 @@ const statusLabel = computed(() => {
                                 @end="markDirty"
                             >
                                 <template #item="{ element: field, index: fieldIndex }">
-                                    <FieldEditor :field="field" :max-upload-kb="maxUploadKb" @remove="removeField(section, fieldIndex)" />
+                                    <FieldEditor
+                                        :field="field"
+                                        :max-upload-kb="maxUploadKb"
+                                        :conditionable-fields="conditionableFields"
+                                        :field-errors="fieldErrorsFor(sectionIndex, fieldIndex)"
+                                        @remove="removeField(section, fieldIndex)"
+                                    />
                                 </template>
                             </draggable>
 
@@ -564,12 +615,7 @@ const statusLabel = computed(() => {
                     <div v-if="settingsForm.notify_on_response" class="grid gap-2 pl-6">
                         <Label>{{ $t('Notification recipients') }}</Label>
                         <div v-for="(email, index) in settingsForm.notification_emails" :key="index" class="flex items-center gap-2">
-                            <Input
-                                v-model="settingsForm.notification_emails[index]"
-                                type="email"
-                                class="h-9"
-                                :placeholder="$t('your@email.com')"
-                            />
+                            <Input v-model="settingsForm.notification_emails[index]" type="email" class="h-9" :placeholder="$t('your@email.com')" />
                             <Button
                                 variant="ghost"
                                 size="icon"

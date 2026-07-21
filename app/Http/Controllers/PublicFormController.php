@@ -36,7 +36,7 @@ class PublicFormController extends Controller
 
         $form->load('fields');
 
-        $validated = $request->validate($service->rules($form));
+        $validated = $request->validate($service->rules($form, $request), [], $service->attributes($form));
 
         if ($form->require_email_verification) {
             $this->assertVerifiedCode($form, $validated['email'], $validated['code']);
@@ -109,6 +109,7 @@ class PublicFormController extends Controller
                     'description' => $field->description,
                     'required' => $field->required,
                     'options' => $field->options,
+                    'visibility' => $field->visibility,
                 ]),
             ]),
         ];

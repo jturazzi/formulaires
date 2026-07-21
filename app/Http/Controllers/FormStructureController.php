@@ -41,6 +41,15 @@ class FormStructureController extends Controller
             'sections.*.fields.*.options.min_date' => ['nullable', 'date'],
             'sections.*.fields.*.options.max_date' => ['nullable', 'date', 'after_or_equal:sections.*.fields.*.options.min_date'],
             'sections.*.fields.*.options.allow_other' => ['nullable', 'boolean'],
+            'sections.*.fields.*.visibility' => ['nullable', 'array'],
+            'sections.*.fields.*.visibility.mode' => ['required_with:sections.*.fields.*.visibility', Rule::in(['visible_if', 'hidden_if'])],
+            'sections.*.fields.*.visibility.logic' => ['required_with:sections.*.fields.*.visibility', Rule::in(['all', 'any'])],
+            'sections.*.fields.*.visibility.conditions' => ['required_with:sections.*.fields.*.visibility', 'array', 'min:1', 'max:10'],
+            'sections.*.fields.*.visibility.conditions.*.field_id' => ['required', 'integer'],
+            'sections.*.fields.*.visibility.conditions.*.operator' => ['required', Rule::in([
+                'equals', 'not_equals', 'contains', 'not_contains', 'empty', 'not_empty', 'greater_than', 'less_than',
+            ])],
+            'sections.*.fields.*.visibility.conditions.*.value' => ['nullable', 'string', 'max:500'],
         ]);
 
         DB::transaction(function () use ($form, $validated) {
@@ -80,6 +89,7 @@ class FormStructureController extends Controller
                         'description' => $fieldData['description'] ?? null,
                         'required' => $fieldData['required'] ?? false,
                         'options' => $fieldData['options'] ?? null,
+                        'visibility' => $fieldData['visibility'] ?? null,
                         'position' => $fieldPosition,
                     ];
 
@@ -93,8 +103,39 @@ class FormStructureController extends Controller
 
             $form->fields()->whereNotIn('id', $keptFieldIds)->get()->each->delete();
             $form->sections()->whereNotIn('id', $keptSectionIds)->get()->each->delete();
+
+            $this->pruneDanglingVisibility($form, $keptFieldIds);
         });
 
         return back()->with('success', __('messages.saved'));
+    }
+
+    /**
+     * Drop visibility conditions that reference a field that no longer
+     * exists (deleted this save) or itself, so a field can never end up
+     * permanently hidden because of a stale reference elsewhere.
+     *
+     * @param  array<int, int>  $keptFieldIds
+     */
+    private function pruneDanglingVisibility(Form $form, array $keptFieldIds): void
+    {
+        $form->fields()->whereNotNull('visibility')->get()->each(function (FormField $field) use ($keptFieldIds) {
+            $visibility = $field->visibility;
+
+            if (empty($visibility['conditions'])) {
+                return;
+            }
+
+            $conditions = array_values(array_filter(
+                $visibility['conditions'],
+                fn (array $condition) => $condition['field_id'] !== $field->id && in_array($condition['field_id'], $keptFieldIds, true)
+            ));
+
+            if (count($conditions) === count($visibility['conditions'])) {
+                return;
+            }
+
+            $field->update(['visibility' => $conditions ? [...$visibility, 'conditions' => $conditions] : null]);
+        });
     }
 }

@@ -61,6 +61,20 @@ export interface FieldOptions {
     allow_other?: boolean;
 }
 
+export type VisibilityOperator = 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'empty' | 'not_empty' | 'greater_than' | 'less_than';
+
+export interface VisibilityCondition {
+    field_id: number;
+    operator: VisibilityOperator;
+    value: string | null;
+}
+
+export interface FieldVisibility {
+    mode: 'visible_if' | 'hidden_if';
+    logic: 'all' | 'any';
+    conditions: VisibilityCondition[];
+}
+
 export interface FormFieldData {
     id: number | null;
     type: FieldType;
@@ -68,6 +82,7 @@ export interface FormFieldData {
     description: string | null;
     required: boolean;
     options: FieldOptions | null;
+    visibility: FieldVisibility | null;
 }
 
 export interface FormSectionData {

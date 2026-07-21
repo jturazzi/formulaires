@@ -119,6 +119,86 @@ test('date answers are validated against min and max date', function () {
     ])->assertSessionHasErrors("answers.{$field->id}");
 });
 
+test('a required field hidden by its visibility condition is not enforced', function () {
+    $form = publishedForm();
+    $section = $form->sections->first();
+
+    $trigger = FormField::factory()->for($form)->type('choice')->create([
+        'form_section_id' => $section->id,
+        'options' => ['choices' => ['Oui', 'Non']],
+    ]);
+
+    $dependent = FormField::factory()->for($form)->required()->create([
+        'form_section_id' => $section->id,
+        'visibility' => [
+            'mode' => 'visible_if',
+            'logic' => 'all',
+            'conditions' => [['field_id' => $trigger->id, 'operator' => 'equals', 'value' => 'Oui']],
+        ],
+    ]);
+
+    // The trigger answer doesn't satisfy the condition, so the dependent field stays
+    // hidden and its required rule should not block submission.
+    $this->post("/f/{$form->slug}", [
+        'consent' => true,
+        'answers' => [$trigger->id => 'Non'],
+    ])->assertRedirect(route('public.forms.thanks', $form->slug));
+
+    expect(Response::first()->answers()->where('form_field_id', $dependent->id)->exists())->toBeFalse();
+});
+
+test('a value submitted for a hidden field is not stored', function () {
+    $form = publishedForm();
+    $section = $form->sections->first();
+
+    $trigger = FormField::factory()->for($form)->type('choice')->create([
+        'form_section_id' => $section->id,
+        'options' => ['choices' => ['Oui', 'Non']],
+    ]);
+
+    $dependent = FormField::factory()->for($form)->create([
+        'form_section_id' => $section->id,
+        'visibility' => [
+            'mode' => 'visible_if',
+            'logic' => 'all',
+            'conditions' => [['field_id' => $trigger->id, 'operator' => 'equals', 'value' => 'Oui']],
+        ],
+    ]);
+
+    // Simulate a tampered request: the trigger says "Non" (dependent should stay
+    // hidden) yet an answer is still supplied for the dependent field.
+    $this->post("/f/{$form->slug}", [
+        'consent' => true,
+        'answers' => [$trigger->id => 'Non', $dependent->id => 'Sneaked in'],
+    ])->assertRedirect(route('public.forms.thanks', $form->slug));
+
+    expect(Response::first()->answers()->where('form_field_id', $dependent->id)->exists())->toBeFalse();
+});
+
+test('a visible field required by its condition is enforced', function () {
+    $form = publishedForm();
+    $section = $form->sections->first();
+
+    $trigger = FormField::factory()->for($form)->type('choice')->create([
+        'form_section_id' => $section->id,
+        'options' => ['choices' => ['Oui', 'Non']],
+    ]);
+
+    $dependent = FormField::factory()->for($form)->required()->create([
+        'form_section_id' => $section->id,
+        'visibility' => [
+            'mode' => 'visible_if',
+            'logic' => 'all',
+            'conditions' => [['field_id' => $trigger->id, 'operator' => 'equals', 'value' => 'Oui']],
+        ],
+    ]);
+
+    $this->post("/f/{$form->slug}", [
+        'consent' => true,
+        'answers' => [$trigger->id => 'Oui'],
+    ])->assertSessionHasErrors("answers.{$dependent->id}");
+});
+
 test('a visitor can upload a file', function () {
     Storage::fake('local');
 

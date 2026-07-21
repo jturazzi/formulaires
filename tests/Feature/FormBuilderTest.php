@@ -108,6 +108,108 @@ test('a number field max option must be greater than or equal to its min option'
         ->assertSessionHasErrors('sections.0.fields.0.options.max');
 });
 
+test('the builder can save a visibility condition on a field', function () {
+    $user = User::factory()->create();
+    $form = Form::factory()->for($user)->create();
+    $section = $form->sections()->create(['position' => 0]);
+    $trigger = FormField::factory()->for($form)->type('choice')->create([
+        'form_section_id' => $section->id,
+        'options' => ['choices' => ['Oui', 'Non']],
+    ]);
+    $dependent = FormField::factory()->for($form)->create(['form_section_id' => $section->id]);
+
+    $this->actingAs($user)
+        ->put(route('forms.structure.update', $form), [
+            'sections' => [
+                [
+                    'id' => $section->id,
+                    'fields' => [
+                        ['id' => $trigger->id, 'type' => 'choice', 'label' => $trigger->label, 'options' => ['choices' => ['Oui', 'Non']]],
+                        [
+                            'id' => $dependent->id,
+                            'type' => 'text',
+                            'label' => $dependent->label,
+                            'visibility' => [
+                                'mode' => 'visible_if',
+                                'logic' => 'all',
+                                'conditions' => [['field_id' => $trigger->id, 'operator' => 'equals', 'value' => 'Oui']],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect($dependent->fresh()->visibility)->toBe([
+        'mode' => 'visible_if',
+        'logic' => 'all',
+        'conditions' => [['field_id' => $trigger->id, 'operator' => 'equals', 'value' => 'Oui']],
+    ]);
+});
+
+test('a visibility condition referencing a deleted field is pruned', function () {
+    $user = User::factory()->create();
+    $form = Form::factory()->for($user)->create();
+    $section = $form->sections()->create(['position' => 0]);
+    $trigger = FormField::factory()->for($form)->type('choice')->create([
+        'form_section_id' => $section->id,
+        'options' => ['choices' => ['Oui', 'Non']],
+    ]);
+    $dependent = FormField::factory()->for($form)->create([
+        'form_section_id' => $section->id,
+        'visibility' => [
+            'mode' => 'visible_if',
+            'logic' => 'all',
+            'conditions' => [['field_id' => $trigger->id, 'operator' => 'equals', 'value' => 'Oui']],
+        ],
+    ]);
+
+    // The trigger field is dropped from this save; the dependent field must not
+    // stay permanently hidden because of a reference to a field that no longer exists.
+    $this->actingAs($user)->put(route('forms.structure.update', $form), [
+        'sections' => [
+            [
+                'id' => $section->id,
+                'fields' => [
+                    ['id' => $dependent->id, 'type' => 'text', 'label' => $dependent->label],
+                ],
+            ],
+        ],
+    ]);
+
+    expect($dependent->fresh()->visibility)->toBeNull();
+});
+
+test('duplicating a form remaps visibility conditions to the new field ids', function () {
+    $user = User::factory()->create();
+    $form = Form::factory()->for($user)->published()->create();
+    $section = $form->sections()->create(['position' => 0]);
+    $trigger = FormField::factory()->for($form)->type('choice')->create([
+        'form_section_id' => $section->id,
+        'options' => ['choices' => ['Oui', 'Non']],
+    ]);
+    FormField::factory()->for($form)->create([
+        'form_section_id' => $section->id,
+        'visibility' => [
+            'mode' => 'visible_if',
+            'logic' => 'all',
+            'conditions' => [['field_id' => $trigger->id, 'operator' => 'equals', 'value' => 'Oui']],
+        ],
+    ]);
+
+    $this->actingAs($user)->post(route('forms.duplicate', $form));
+
+    $copy = Form::whereKeyNot($form->id)->first();
+    $copiedTrigger = $copy->fields()->where('type', 'choice')->first();
+    $copiedDependent = $copy->fields()->whereNotNull('visibility')->first();
+
+    expect($copiedDependent)->not->toBeNull()
+        ->and($copiedDependent->visibility['conditions'][0]['field_id'])->toBe($copiedTrigger->id)
+        ->and($copiedDependent->visibility['conditions'][0]['field_id'])->not->toBe($trigger->id);
+});
+
 test('removed fields are deleted from the structure', function () {
     $user = User::factory()->create();
     $form = Form::factory()->for($user)->create();
