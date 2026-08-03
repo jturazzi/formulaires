@@ -16,15 +16,19 @@ use Inertia\Response as InertiaResponse;
 
 class PublicFormController extends Controller
 {
-    public function show(string $slug): InertiaResponse
+    public function show(Request $request, string $slug): InertiaResponse
     {
         $form = Form::query()->where('slug', $slug)->firstOrFail();
 
-        abort_if($form->status === Form::STATUS_DRAFT, 404);
+        $isDraft = $form->status === Form::STATUS_DRAFT;
+        $canPreview = $isDraft && $request->user()?->can('view', $form);
+
+        abort_if($isDraft && ! $canPreview, 404);
 
         return Inertia::render('public/Form', [
             'form' => $this->publicPayload($form),
-            'closed' => ! $form->isOpen(),
+            'closed' => ! $isDraft && ! $form->isOpen(),
+            'preview' => $isDraft,
         ]);
     }
 

@@ -46,6 +46,7 @@ const props = defineProps<{
         sections: PublicSection[];
     };
     closed: boolean;
+    preview: boolean;
 }>();
 
 const page = usePage<SharedData>();
@@ -255,6 +256,14 @@ const submit = () => {
                 <img v-if="form.logo_url" :src="form.logo_url" alt="Logo" class="mb-6 max-h-20 object-contain" />
                 <h1 class="text-2xl font-bold">{{ form.title }}</h1>
                 <p v-if="form.description" class="mt-2 whitespace-pre-line text-muted-foreground">{{ form.description }}</p>
+            </div>
+
+            <!-- Preview notice -->
+            <div
+                v-if="preview"
+                class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-center text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+            >
+                {{ $t("Preview — this form hasn't been published yet. Responses are not being collected.") }}
             </div>
 
             <!-- Closed notice -->
@@ -520,7 +529,14 @@ const submit = () => {
                     <InputError class="mt-2" :message="submission.errors.consent" />
                 </div>
 
-                <Button type="submit" size="lg" class="w-full text-white" :style="{ backgroundColor: accent }" :disabled="submission.processing">
+                <Button
+                    type="submit"
+                    size="lg"
+                    class="w-full text-white"
+                    :style="{ backgroundColor: accent }"
+                    :disabled="submission.processing || preview"
+                    :title="preview ? $t('Publish the form to accept responses.') : undefined"
+                >
                     <LoaderCircle v-if="submission.processing" class="mr-2 h-4 w-4 animate-spin" />
                     {{ $t('Submit my response') }}
                 </Button>

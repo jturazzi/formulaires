@@ -31,6 +31,24 @@ test('a draft form is not publicly visible', function () {
     $this->get("/f/{$form->slug}")->assertNotFound();
 });
 
+test('the owner can preview their own draft form', function () {
+    $form = Form::factory()->create();
+
+    $this->actingAs($form->user)
+        ->get("/f/{$form->slug}")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('preview', true)->where('closed', false));
+});
+
+test('another authenticated user cannot preview someone else\'s draft form', function () {
+    $form = Form::factory()->create();
+    $other = User::factory()->create();
+
+    $this->actingAs($other)
+        ->get("/f/{$form->slug}")
+        ->assertNotFound();
+});
+
 test('a visitor can submit a response with consent', function () {
     $form = publishedForm();
     $field = FormField::factory()->for($form)->required()->create([

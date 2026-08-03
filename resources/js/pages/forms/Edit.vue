@@ -25,6 +25,7 @@ import {
     CheckSquare,
     ChevronDown,
     CircleDot,
+    EyeOff,
     ExternalLink,
     FileUp,
     Hash,
@@ -384,20 +385,27 @@ const statusLabel = computed(() => {
                         {{ $t('Settings') }}
                     </Button>
 
+                    <Button variant="outline" size="sm" as-child>
+                        <a :href="form.public_url" target="_blank">
+                            <ExternalLink class="mr-1 h-4 w-4" />
+                            {{ $t('Preview') }}
+                        </a>
+                    </Button>
+
                     <template v-if="form.status === 'published'">
                         <Button variant="outline" size="sm" @click="copyPublicLink">
                             <LinkIcon class="mr-1 h-4 w-4" />
                             {{ $t('Copy public link') }}
                         </Button>
-                        <Button variant="outline" size="sm" as-child>
-                            <a :href="form.public_url" target="_blank">
-                                <ExternalLink class="mr-1 h-4 w-4" />
-                                {{ $t('Preview') }}
-                            </a>
-                        </Button>
                         <Button variant="outline" size="sm" @click="setStatus('closed')">{{ $t('Close form') }}</Button>
                     </template>
-                    <Button v-else size="sm" variant="secondary" @click="setStatus('published')">{{ $t('Publish') }}</Button>
+                    <Button v-if="form.status !== 'draft'" variant="outline" size="sm" @click="setStatus('draft')">
+                        <EyeOff class="mr-1 h-4 w-4" />
+                        {{ $t('Unpublish') }}
+                    </Button>
+                    <Button v-if="form.status !== 'published'" size="sm" variant="secondary" @click="setStatus('published')">
+                        {{ $t('Publish') }}
+                    </Button>
 
                     <Button size="sm" :disabled="!structureDirty || savingStructure" @click="saveStructure">
                         <Save class="mr-1 h-4 w-4" />
