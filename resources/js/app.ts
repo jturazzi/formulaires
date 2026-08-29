@@ -1,6 +1,7 @@
 import '../css/app.css';
 
 import { createInertiaApp } from '@inertiajs/vue3';
+import * as Sentry from '@sentry/vue';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { i18nVue } from 'laravel-vue-i18n';
 import type { DefineComponent } from 'vue';
@@ -12,6 +13,8 @@ import { initializeTheme } from './composables/useAppearance';
 declare module 'vite/client' {
     interface ImportMetaEnv {
         readonly VITE_APP_NAME: string;
+        readonly VITE_SENTRY_DSN?: string;
+        readonly VITE_SENTRY_ENVIRONMENT?: string;
         [key: string]: string | boolean | undefined;
     }
 
@@ -27,8 +30,19 @@ createInertiaApp({
     title: (title) => `${title} - ${appName}`,
     resolve: (name) => resolvePageComponent(`./pages/${name}.vue`, import.meta.glob<DefineComponent>('./pages/**/*.vue')),
     setup({ el, App, props, plugin }) {
-        createApp({ render: () => h(App, props) })
-            .use(plugin)
+        const app = createApp({ render: () => h(App, props) });
+
+        if (import.meta.env.VITE_SENTRY_DSN) {
+            Sentry.init({
+                app,
+                dsn: import.meta.env.VITE_SENTRY_DSN,
+                environment: import.meta.env.VITE_SENTRY_ENVIRONMENT || import.meta.env.MODE,
+                integrations: [Sentry.browserTracingIntegration()],
+                tracesSampleRate: 0.2,
+            });
+        }
+
+        app.use(plugin)
             .use(ZiggyVue)
             .use(i18nVue, {
                 lang: (props.initialPage.props.locale as string) || 'fr',

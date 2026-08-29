@@ -24,6 +24,7 @@
         "@fontsource/instrument-sans": "^5.2.8",
         "@headlessui/vue": "^1.7.23",
         "@inertiajs/vue3": "^2.0.0-beta.3",
+        "@sentry/vue": "^10.72.0",
         "@tailwindcss/forms": "^0.5.3",
         "@tailwindcss/typography": "^0.5.20",
         "@types/node": "^22.10.2",
