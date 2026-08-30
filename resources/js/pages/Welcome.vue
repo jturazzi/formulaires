@@ -3,7 +3,7 @@ import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import { Button } from '@/components/ui/button';
 import { type SharedData } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/vue3';
-import { FileText, Lock, ShieldCheck, Timer } from 'lucide-vue-next';
+import { FileText, Lock, ShieldCheck, Timer } from '@lucide/vue';
 
 const page = usePage<SharedData>();
 </script>

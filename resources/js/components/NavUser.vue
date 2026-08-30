@@ -4,7 +4,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/compon
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type SharedData, type User } from '@/types';
 import { usePage } from '@inertiajs/vue3';
-import { ChevronsUpDown } from 'lucide-vue-next';
+import { ChevronsUpDown } from '@lucide/vue';
 import UserMenuContent from './UserMenuContent.vue';
 
 const page = usePage<SharedData>();
@@ -21,7 +21,7 @@ const user = page.props.auth.user as User;
                         <ChevronsUpDown class="ml-auto size-4" />
                     </SidebarMenuButton>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent class="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg" side="bottom" align="end" :side-offset="4">
+                <DropdownMenuContent class="w-[var(--radix-dropdown-menu-trigger-width)] min-w-56 rounded-lg" side="bottom" align="end" :side-offset="4">
                     <UserMenuContent :user="user" />
                 </DropdownMenuContent>
             </DropdownMenu>

@@ -8,8 +8,8 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem, type FormStatus } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
-import { Copy, ExternalLink, Inbox, LinkIcon, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { Copy, ExternalLink, Inbox, LinkIcon, MoreHorizontal, Pencil, Plus, Trash2 } from '@lucide/vue';
+import { onMounted, ref } from 'vue';
 
 interface FormRow {
     id: number;
@@ -37,6 +37,14 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const createOpen = ref(false);
+
+// Support linking straight into the create dialog (e.g. from the Dashboard's
+// empty state) via /forms?create=1.
+onMounted(() => {
+    if (new URLSearchParams(window.location.search).get('create') === '1') {
+        createOpen.value = true;
+    }
+});
 
 const createForm = useForm({
     title: '',

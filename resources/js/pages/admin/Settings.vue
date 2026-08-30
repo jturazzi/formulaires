@@ -17,6 +17,17 @@ const props = defineProps<{
         privacy_fr: string | null;
         privacy_en: string | null;
     };
+    systemInfo: {
+        app_version: string | null;
+        php_version: string;
+        laravel_version: string;
+        server: string;
+        environment: string;
+        database: string;
+        cache: string;
+        session: string;
+        timezone: string;
+    };
 }>();
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: trans('Site settings'), href: '/admin/settings' }];
@@ -99,6 +110,44 @@ const save = () => {
             <div class="flex justify-end">
                 <Button :disabled="form.processing" @click="save">{{ $t('Save') }}</Button>
             </div>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>{{ $t('System information') }}</CardTitle>
+                </CardHeader>
+                <CardContent class="grid gap-6 sm:grid-cols-2">
+                    <div class="grid gap-2">
+                        <h3 class="text-sm font-medium text-muted-foreground">{{ $t('Application') }}</h3>
+                        <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+                            <template v-if="systemInfo.app_version">
+                                <dt class="text-muted-foreground">{{ $t('Version') }}</dt>
+                                <dd class="font-mono">{{ systemInfo.app_version }}</dd>
+                            </template>
+                            <dt class="text-muted-foreground">{{ $t('PHP version') }}</dt>
+                            <dd class="font-mono">{{ systemInfo.php_version }}</dd>
+                            <dt class="text-muted-foreground">{{ $t('Laravel version') }}</dt>
+                            <dd class="font-mono">{{ systemInfo.laravel_version }}</dd>
+                        </dl>
+                    </div>
+                    <div class="grid gap-2">
+                        <h3 class="text-sm font-medium text-muted-foreground">{{ $t('Server') }}</h3>
+                        <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+                            <dt class="text-muted-foreground">{{ $t('Server') }}</dt>
+                            <dd class="truncate font-mono" :title="systemInfo.server">{{ systemInfo.server }}</dd>
+                            <dt class="text-muted-foreground">{{ $t('Environment') }}</dt>
+                            <dd class="font-mono">{{ systemInfo.environment }}</dd>
+                            <dt class="text-muted-foreground">{{ $t('Database') }}</dt>
+                            <dd class="truncate font-mono" :title="systemInfo.database">{{ systemInfo.database }}</dd>
+                            <dt class="text-muted-foreground">{{ $t('Cache') }}</dt>
+                            <dd class="font-mono">{{ systemInfo.cache }}</dd>
+                            <dt class="text-muted-foreground">{{ $t('Session') }}</dt>
+                            <dd class="font-mono">{{ systemInfo.session }}</dd>
+                            <dt class="text-muted-foreground">{{ $t('Timezone') }}</dt>
+                            <dd class="font-mono">{{ systemInfo.timezone }}</dd>
+                        </dl>
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     </AppLayout>
 </template>

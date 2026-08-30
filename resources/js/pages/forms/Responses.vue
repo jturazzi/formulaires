@@ -5,8 +5,8 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
-import { Download, Eye, ExternalLink, FileDown, MailCheck, Trash2 } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { Download, Eye, ExternalLink, FileDown, MailCheck, Trash2 } from '@lucide/vue';
+import { computed, ref } from 'vue';
 
 interface ResponseAnswer {
     field_id: number;
@@ -32,7 +32,7 @@ const props = defineProps<{
         status: string;
         retention_days: number;
     };
-    fields: { id: number; type: string; label: string }[];
+    fields: { id: number; type: string; label: string; required: boolean }[];
     responses: {
         data: ResponseRow[];
         meta: { current_page: number; last_page: number; total: number };
@@ -47,6 +47,17 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const selected = ref<ResponseRow | null>(null);
 const deleteCandidate = ref<ResponseRow | null>(null);
+
+// The table only has room for a handful of columns; favor required questions
+// (the ones every respondent actually answered) over optional ones, while
+// keeping each group in its original order. The detail dialog still shows
+// every answer regardless.
+const columnFields = computed(() => {
+    const required = props.fields.filter((field) => field.required);
+    const optional = props.fields.filter((field) => !field.required);
+
+    return [...required, ...optional].slice(0, 4);
+});
 
 const answerFor = (response: ResponseRow, fieldId: number) => response.answers.find((answer) => answer.field_id === fieldId);
 
@@ -128,7 +139,7 @@ const goToPage = (pageNumber: number) => {
                         <tr class="border-b bg-muted/50 text-left">
                             <th class="whitespace-nowrap px-4 py-3 font-medium">{{ $t('Date') }}</th>
                             <th class="whitespace-nowrap px-4 py-3 font-medium">{{ $t('Email') }}</th>
-                            <th v-for="field in fields.slice(0, 4)" :key="field.id" class="max-w-48 truncate px-4 py-3 font-medium">
+                            <th v-for="field in columnFields" :key="field.id" class="max-w-48 truncate px-4 py-3 font-medium">
                                 {{ field.label }}
                             </th>
                             <th class="px-4 py-3"></th>
@@ -144,7 +155,7 @@ const goToPage = (pageNumber: number) => {
                                 </span>
                                 <span v-else class="text-muted-foreground">—</span>
                             </td>
-                            <td v-for="field in fields.slice(0, 4)" :key="field.id" class="max-w-48 truncate px-4 py-3">
+                            <td v-for="field in columnFields" :key="field.id" class="max-w-48 truncate px-4 py-3">
                                 {{ displayValue(answerFor(response, field.id)) }}
                             </td>
                             <td class="whitespace-nowrap px-4 py-3 text-right">

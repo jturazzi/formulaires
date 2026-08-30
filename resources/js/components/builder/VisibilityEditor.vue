@@ -4,7 +4,7 @@ import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { type FieldType, type FormFieldData, type VisibilityCondition, type VisibilityOperator } from '@/types';
-import { Plus, X } from 'lucide-vue-next';
+import { Plus, X } from '@lucide/vue';
 import { computed } from 'vue';
 
 const props = withDefaults(
@@ -190,6 +190,7 @@ const needsValue = (operator: VisibilityOperator) => !VALUELESS_OPERATORS.includ
                         size="icon"
                         class="h-8 w-8 shrink-0 text-muted-foreground"
                         :disabled="conditions.length <= 1"
+                        :aria-label="$t('Remove')"
                         @click="removeCondition(index)"
                     >
                         <X class="h-4 w-4" />

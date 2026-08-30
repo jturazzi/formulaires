@@ -1,4 +1,4 @@
-import type { LucideIcon } from 'lucide-vue-next';
+import type { LucideIcon } from '@lucide/vue';
 
 export interface Auth {
     user: User;
@@ -17,6 +17,7 @@ export interface NavItem {
 }
 
 export interface SharedData {
+    [key: string]: unknown;
     name: string;
     auth: Auth;
     locale: string;

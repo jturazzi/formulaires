@@ -55,15 +55,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('forms/{form}/structure', [FormStructureController::class, 'update'])->name('forms.structure.update');
     Route::post('forms/{form}/status', [FormController::class, 'updateStatus'])->name('forms.status.update');
     Route::post('forms/{form}/duplicate', [FormController::class, 'duplicate'])->name('forms.duplicate');
-    Route::post('forms/{form}/logo', [FormController::class, 'uploadLogo'])->name('forms.logo.upload');
+    Route::post('forms/{form}/logo', [FormController::class, 'uploadLogo'])->middleware('throttle:15,1')->name('forms.logo.upload');
     Route::delete('forms/{form}/logo', [FormController::class, 'deleteLogo'])->name('forms.logo.delete');
 
-    Route::post('forms/{form}/shares', [FormShareController::class, 'store'])->name('forms.shares.store');
+    Route::post('forms/{form}/shares', [FormShareController::class, 'store'])->middleware('throttle:15,1')->name('forms.shares.store');
     Route::delete('forms/{form}/shares/{share}', [FormShareController::class, 'destroy'])->name('forms.shares.destroy');
-    Route::post('forms/{form}/owner', [FormOwnershipController::class, 'update'])->name('forms.owner.update');
+    Route::post('forms/{form}/owner', [FormOwnershipController::class, 'update'])->middleware('throttle:10,1')->name('forms.owner.update');
 
     Route::get('forms/{form}/responses', [FormResponseController::class, 'index'])->name('forms.responses.index');
-    Route::get('forms/{form}/responses/export', [FormResponseController::class, 'export'])->name('forms.responses.export');
+    Route::get('forms/{form}/responses/export', [FormResponseController::class, 'export'])->middleware('throttle:10,1')->name('forms.responses.export');
     Route::delete('forms/{form}/responses/{response}', [FormResponseController::class, 'destroy'])->name('forms.responses.destroy');
 
     Route::get('answers/{answer}/file', [FormResponseController::class, 'downloadFile'])->name('answers.file');

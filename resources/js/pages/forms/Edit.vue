@@ -41,8 +41,8 @@ import {
     Trash2,
     Type,
     Users,
-} from 'lucide-vue-next';
-import { computed, nextTick, reactive, ref, watch } from 'vue';
+} from '@lucide/vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import draggable from 'vuedraggable';
 
 const props = defineProps<{
@@ -158,8 +158,42 @@ const addSection = () => {
     markDirty();
 };
 
-const removeSection = (index: number) => {
-    sections.splice(index, 1);
+// Warn before losing unsaved structure edits: closing the tab, a full-page
+// navigation (the Responses/Preview links are plain <a> tags), or an Inertia
+// SPA navigation (e.g. clicking a sidebar link).
+const beforeUnloadHandler = (event: BeforeUnloadEvent) => {
+    if (structureDirty.value) {
+        event.preventDefault();
+    }
+};
+
+let stopInertiaGuard: (() => void) | undefined;
+
+onMounted(() => {
+    window.addEventListener('beforeunload', beforeUnloadHandler);
+    stopInertiaGuard = router.on('before', () => {
+        if (!structureDirty.value) {
+            return true;
+        }
+
+        return confirm(trans('You have unsaved changes. Leave this page anyway?'));
+    });
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener('beforeunload', beforeUnloadHandler);
+    stopInertiaGuard?.();
+});
+
+const sectionToRemove = ref<number | null>(null);
+
+const confirmRemoveSection = () => {
+    if (sectionToRemove.value === null) {
+        return;
+    }
+
+    sections.splice(sectionToRemove.value, 1);
+    sectionToRemove.value = null;
     markDirty();
 };
 
@@ -233,6 +267,16 @@ const saveSettings = () => {
             preserveScroll: true,
             onSuccess: () => (settingsOpen.value = false),
         });
+};
+
+// Discard any in-progress dialog edits (slug, color, notifications…) instead
+// of leaving them sitting in the shared form object, where they'd otherwise
+// get silently submitted next time the auto-saving header title/description
+// fields fire a save.
+const closeSettings = () => {
+    settingsForm.reset();
+    settingsForm.clearErrors();
+    settingsOpen.value = false;
 };
 
 /* ------------------------------------------------------------------ */
@@ -502,7 +546,7 @@ const statusLabel = computed(() => {
                                 variant="ghost"
                                 size="sm"
                                 class="text-muted-foreground hover:text-red-600"
-                                @click="removeSection(sectionIndex)"
+                                @click="sectionToRemove = sectionIndex"
                             >
                                 {{ $t('Remove section') }}
                             </Button>
@@ -562,7 +606,7 @@ const statusLabel = computed(() => {
         </div>
 
         <!-- Settings dialog -->
-        <Dialog v-model:open="settingsOpen">
+        <Dialog :open="settingsOpen" @update:open="(open: boolean) => (open ? (settingsOpen = true) : closeSettings())">
             <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>{{ $t('Form settings') }}</DialogTitle>
@@ -628,6 +672,7 @@ const statusLabel = computed(() => {
                                 variant="ghost"
                                 size="icon"
                                 class="h-8 w-8 shrink-0 text-muted-foreground"
+                                :aria-label="$t('Remove')"
                                 @click="removeNotificationEmail(index)"
                             >
                                 <Trash2 class="h-4 w-4" />
@@ -696,8 +741,24 @@ const statusLabel = computed(() => {
                 </div>
 
                 <DialogFooter>
-                    <Button variant="outline" @click="settingsOpen = false">{{ $t('Cancel') }}</Button>
+                    <Button variant="outline" @click="closeSettings">{{ $t('Cancel') }}</Button>
                     <Button :disabled="settingsForm.processing" @click="saveSettings">{{ $t('Save') }}</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        <!-- Remove section confirmation -->
+        <Dialog :open="sectionToRemove !== null" @update:open="(value: boolean) => !value && (sectionToRemove = null)">
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{{ $t('Remove this section?') }}</DialogTitle>
+                    <DialogDescription>
+                        {{ $t('The section and all of its questions will be removed once you save the form.') }}
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button variant="outline" @click="sectionToRemove = null">{{ $t('Cancel') }}</Button>
+                    <Button variant="destructive" @click="confirmRemoveSection">{{ $t('Remove section') }}</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

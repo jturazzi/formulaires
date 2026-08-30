@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { SharedData } from '@/types';
 import { usePage } from '@inertiajs/vue3';
-import { CheckCircle2, XCircle } from 'lucide-vue-next';
+import { CheckCircle2, XCircle } from '@lucide/vue';
 import { ref, watch } from 'vue';
 
 const page = usePage<SharedData>();

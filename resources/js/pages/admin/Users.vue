@@ -5,7 +5,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
-import { KeyRound, Trash2 } from 'lucide-vue-next';
+import { KeyRound, Trash2 } from '@lucide/vue';
 import { ref } from 'vue';
 
 interface UserRow {
@@ -26,9 +26,42 @@ const page = usePage<SharedData>();
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: trans('Users'), href: '/admin/users' }];
 
+const roleCandidate = ref<{ user: UserRow; role: string; select: HTMLSelectElement } | null>(null);
+
 const changeRole = (user: UserRow, event: Event) => {
-    const role = (event.target as HTMLSelectElement).value;
+    const select = event.target as HTMLSelectElement;
+    const role = select.value;
+
+    if (role === user.role) {
+        return;
+    }
+
+    if (role === 'admin') {
+        roleCandidate.value = { user, role, select };
+        return;
+    }
+
     router.patch(route('admin.users.update', user.id), { role }, { preserveScroll: true });
+};
+
+const confirmRoleChange = () => {
+    if (!roleCandidate.value) {
+        return;
+    }
+
+    router.patch(
+        route('admin.users.update', roleCandidate.value.user.id),
+        { role: roleCandidate.value.role },
+        { preserveScroll: true, onFinish: () => (roleCandidate.value = null) },
+    );
+};
+
+const cancelRoleChange = () => {
+    if (roleCandidate.value) {
+        roleCandidate.value.select.value = roleCandidate.value.user.role;
+    }
+
+    roleCandidate.value = null;
 };
 
 const deleteCandidate = ref<UserRow | null>(null);
@@ -116,6 +149,21 @@ const confirmDelete = () => {
                 <DialogFooter>
                     <Button variant="outline" @click="deleteCandidate = null">{{ $t('Cancel') }}</Button>
                     <Button variant="destructive" @click="confirmDelete">{{ $t('Delete') }}</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        <Dialog :open="roleCandidate !== null" @update:open="(value: boolean) => !value && cancelRoleChange()">
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{{ $t('Make this user an administrator?') }}</DialogTitle>
+                    <DialogDescription>
+                        {{ $t('Administrators can manage every user, form and site setting. Only grant this role to people you trust.') }}
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button variant="outline" @click="cancelRoleChange">{{ $t('Cancel') }}</Button>
+                    <Button @click="confirmRoleChange">{{ $t('Make administrator') }}</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

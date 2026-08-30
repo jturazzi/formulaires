@@ -5,7 +5,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem, type FormStatus } from '@/types';
 import { Head, Link } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
-import { CheckCircle2, FileText, Inbox, TrendingUp } from 'lucide-vue-next';
+import { CheckCircle2, FileText, Inbox, Plus, TrendingUp } from '@lucide/vue';
 
 interface RecentForm {
     id: number;
@@ -97,9 +97,15 @@ const statusLabel: Record<FormStatus, string> = {
                     </Button>
                 </CardHeader>
                 <CardContent>
-                    <p v-if="recentForms.length === 0" class="py-8 text-center text-sm text-muted-foreground">
-                        {{ $t('No forms yet. Create your first form!') }}
-                    </p>
+                    <div v-if="recentForms.length === 0" class="flex flex-col items-center gap-3 py-8 text-center">
+                        <p class="text-sm text-muted-foreground">{{ $t('No forms yet. Create your first form!') }}</p>
+                        <Button as-child size="sm">
+                            <Link href="/forms?create=1">
+                                <Plus class="mr-1 h-4 w-4" />
+                                {{ $t('New form') }}
+                            </Link>
+                        </Button>
+                    </div>
                     <ul v-else class="divide-y">
                         <li v-for="form in recentForms" :key="form.id" class="flex items-center justify-between gap-4 py-3">
                             <div class="min-w-0">

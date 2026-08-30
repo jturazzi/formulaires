@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { type FieldVisibility, type SharedData, type VisibilityCondition, type VisibilityOperator } from '@/types';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
-import { LoaderCircle, MailCheck } from 'lucide-vue-next';
+import { LoaderCircle, MailCheck } from '@lucide/vue';
 import { computed, reactive, ref } from 'vue';
 
 interface PublicField {

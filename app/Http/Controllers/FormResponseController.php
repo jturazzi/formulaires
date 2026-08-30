@@ -39,6 +39,7 @@ class FormResponseController extends Controller
                 'id' => $field->id,
                 'type' => $field->type,
                 'label' => $field->label,
+                'required' => $field->required,
             ]),
             'responses' => [
                 'data' => collect($responses->items())->map(fn (Response $response) => $this->responsePayload($response)),

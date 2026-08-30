@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
-import { CheckCircle2 } from 'lucide-vue-next';
+import { CheckCircle2 } from '@lucide/vue';
 import { computed } from 'vue';
 
 const props = defineProps<{

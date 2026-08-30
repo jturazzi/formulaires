@@ -1,22 +1,22 @@
 # Formulaires
 
-> 🇫🇷 [Version française](README.fr.md)
+> 🇫🇷 [Version française](README-fr.md)
 
-**Formulaires** is an open source, self-hosted form builder. Create forms with sections, questions and file uploads, share a public link, and collect all responses in one place — with GDPR compliance built in.
+**Formulaires** is an open source, self-hosted form builder. Create forms with sections, questions and file uploads, share a public link, and collect all responses in one place - with GDPR compliance built in.
 
-Built with **Laravel 13**, **Inertia.js v2** and **Vue 3** (TypeScript, Tailwind CSS).
+Built with **Laravel 13**, **Inertia.js v3** and **Vue 3** (TypeScript, Tailwind CSS v4).
 
 ## Features
 
-- **Form builder** — sections, drag & drop reordering, ten question types: short/long text, email, number, date, single choice, multiple choice, dropdown, file upload and static text blocks.
-- **Branding** — per-form logo and theme color.
-- **Public link** — respondents don't need an account. Optional per-form settings: email verification by 6-digit code, response limit, closing date.
-- **Centralized responses** — table view, detail view, secure file downloads, CSV export (Excel-friendly).
-- **Microsoft 365 SSO** — managers sign in with their organization account (Azure AD / Entra ID). The first user to sign in becomes administrator. Classic email/password auth is available as an option for deployments without Microsoft 365.
-- **Roles** — administrators (manage users, legal pages and GDPR defaults) and creators (manage their own forms).
-- **GDPR** — explicit consent checkbox with links to editable terms of use and privacy policy, per-form document retention period, daily automatic purge of expired responses **and their files**, right-to-erasure deletion of individual responses.
-- **Bilingual** — French and English out of the box (framework ready for more locales).
-- **Email notifications** — optional email to the form owner on each new response.
+- **Form builder** - sections, drag & drop reordering, ten question types: short/long text, email, number, date, single choice, multiple choice, dropdown, file upload and static text blocks.
+- **Branding** - per-form logo and theme color.
+- **Public link** - respondents don't need an account. Optional per-form settings: email verification by 6-digit code, response limit, closing date.
+- **Centralized responses** - table view, detail view, secure file downloads, CSV export (Excel-friendly).
+- **Microsoft 365 SSO** - managers sign in with their organization account (Azure AD / Entra ID). The first user to sign in becomes administrator. Classic email/password auth is available as an option for deployments without Microsoft 365.
+- **Roles** - administrators (manage users, legal pages, GDPR defaults and system diagnostics) and creators (manage their own forms).
+- **GDPR** - explicit consent checkbox with links to editable terms of use and privacy policy, per-form document retention period, daily automatic purge of expired responses **and their files**, right-to-erasure deletion of individual responses.
+- **Bilingual** - French and English out of the box (framework ready for more locales).
+- **Email notifications** - optional email to the form owner on each new response.
 
 ## Requirements
 
@@ -83,23 +83,30 @@ The **first user** who signs in becomes the administrator. No Microsoft 365? Set
 
 Respondent verification codes and owner notifications are sent by email. Configure the `MAIL_*` variables in `.env` (any SMTP provider works).
 
+### Error tracking (optional)
+
+The app ships with [Sentry](https://sentry.io) support, disabled unless configured. Set `SENTRY_LARAVEL_DSN` (backend) and `VITE_SENTRY_DSN` (frontend, rebuild assets after setting it) in `.env` to enable it. Leave both empty to keep it off.
+
 ## GDPR notes
 
 - The consent checkbox is **always required** before a response is submitted; the consent timestamp is stored with the response.
-- The terms of use and privacy policy pages are editable from the admin panel (Markdown, French and English). Default templates are seeded — **replace the `[placeholders]` with your organization's details**.
+- The terms of use and privacy policy pages are editable from the admin panel (Markdown, French and English). Default templates are seeded - **replace the `[placeholders]` with your organization's details**.
 - Each form displays its retention period to respondents. After that period, responses and uploaded documents are deleted automatically by the daily purge.
 - Deleting a response, a form or a user also deletes every associated uploaded file.
 - Uploaded files are stored on the private local disk and served only to the form owner and administrators, never publicly.
+- Inertia's built-in DevTools (request/response recorder, on by default outside `production`) is **disabled** by default in `.env.example` (`INERTIA_DEVTOOLS_ENABLED=false`): it would otherwise record public form submissions to disk outside the app's retention/purge system. Only re-enable it for local debugging.
 
 ## Testing
 
 ```bash
-php artisan test
+php artisan test        # backend test suite
+composer analyse        # static analysis (Larastan)
+npm run lint             # frontend lint
 ```
 
 ## Contributing
 
-Issues and pull requests are welcome! Please run `php artisan test`, `npm run lint` and `npm run format` before submitting.
+Issues and pull requests are welcome! Please run `php artisan test`, `composer analyse`, `npm run lint` and `npm run format` before submitting.
 
 ## License
 
