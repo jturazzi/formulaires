@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -390,8 +391,8 @@ const statusLabel = computed(() => {
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
             <!-- Toolbar -->
-            <div class="flex flex-wrap items-center justify-between gap-3">
-                <div class="flex items-center gap-3">
+            <div class="bg-background/95 sticky top-0 z-10 -mx-6 flex flex-wrap items-center justify-between gap-3 px-6 py-3 backdrop-blur">
+                <div class="flex flex-wrap items-center gap-3">
                     <span
                         class="rounded-full px-2.5 py-0.5 text-xs font-medium"
                         :class="{
@@ -402,11 +403,11 @@ const statusLabel = computed(() => {
                     >
                         {{ statusLabel }}
                     </span>
-                    <span class="text-sm text-muted-foreground">{{ form.responses_count }} {{ $t('response(s)') }}</span>
-                    <span v-if="form.is_shared_with_me" class="text-sm text-muted-foreground">
+                    <span class="text-muted-foreground text-sm">{{ form.responses_count }} {{ $t('response(s)') }}</span>
+                    <span v-if="form.is_shared_with_me" class="text-muted-foreground text-sm">
                         {{ $t('Shared by :name', { name: form.owner.name }) }}
                     </span>
-                    <span v-else-if="!form.is_owner" class="text-sm text-muted-foreground">
+                    <span v-else-if="!form.is_owner" class="text-muted-foreground text-sm">
                         {{ $t('Owned by :name', { name: form.owner.name }) }}
                     </span>
                 </div>
@@ -436,6 +437,8 @@ const statusLabel = computed(() => {
                         </a>
                     </Button>
 
+                    <Separator orientation="vertical" class="h-6" />
+
                     <template v-if="form.status === 'published'">
                         <Button variant="outline" size="sm" @click="copyPublicLink">
                             <LinkIcon class="mr-1 h-4 w-4" />
@@ -461,12 +464,12 @@ const statusLabel = computed(() => {
             <p v-if="structureError" class="text-sm text-red-600">{{ structureError }}</p>
 
             <!-- Header card: logo + title + description -->
-            <Card>
+            <Card class="border-border/70 shadow-none">
                 <CardContent class="flex flex-col gap-4 pt-6">
                     <div class="flex items-center gap-4">
-                        <div class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted/40">
+                        <div class="bg-muted/40 flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border">
                             <img v-if="form.logo_url" :src="form.logo_url" alt="Logo" class="h-full w-full object-contain" />
-                            <ImageIcon v-else class="h-6 w-6 text-muted-foreground" />
+                            <ImageIcon v-else class="text-muted-foreground h-6 w-6" />
                         </div>
                         <div class="flex flex-col gap-1">
                             <div class="flex gap-2">
@@ -477,7 +480,7 @@ const statusLabel = computed(() => {
                                     {{ $t('Remove') }}
                                 </Button>
                             </div>
-                            <p class="text-xs text-muted-foreground">{{ $t('PNG, JPG, SVG or WebP — max 2 MB.') }}</p>
+                            <p class="text-muted-foreground text-xs">{{ $t('PNG, JPG, SVG or WebP — max 2 MB.') }}</p>
                             <input ref="logoInput" type="file" accept=".png,.jpg,.jpeg,.webp,.svg" class="hidden" @change="uploadLogo" />
                             <InputError :message="logoError" />
                         </div>
@@ -495,7 +498,7 @@ const statusLabel = computed(() => {
                             id="form-description"
                             v-model="settingsForm.description"
                             rows="2"
-                            class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
                             :placeholder="$t('Shown at the top of the public form')"
                             @change="saveSettings"
                         ></textarea>
@@ -507,11 +510,16 @@ const statusLabel = computed(() => {
             <!-- Sections -->
             <draggable :list="sections" item-key="id" handle=".section-drag-handle" class="flex flex-col gap-6" @end="markDirty">
                 <template #item="{ element: section, index: sectionIndex }">
-                    <Card>
+                    <Card class="border-border/70 shadow-none">
                         <CardHeader class="flex flex-row items-start gap-3 space-y-0">
+                            <span
+                                class="bg-primary/10 text-primary mt-1.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                            >
+                                {{ sectionIndex + 1 }}
+                            </span>
                             <button
                                 type="button"
-                                class="section-drag-handle mt-2.5 cursor-grab text-muted-foreground hover:text-foreground"
+                                class="section-drag-handle text-muted-foreground hover:text-foreground mt-2.5 cursor-grab"
                                 :aria-label="$t('Reorder')"
                             >
                                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -573,14 +581,17 @@ const statusLabel = computed(() => {
 
                             <p
                                 v-if="section.fields.length === 0"
-                                class="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground"
+                                class="text-muted-foreground rounded-lg border border-dashed p-6 text-center text-sm"
                             >
                                 {{ $t('Empty section — add a question below.') }}
                             </p>
 
                             <DropdownMenu>
                                 <DropdownMenuTrigger as-child>
-                                    <Button variant="outline" class="w-fit">
+                                    <Button
+                                        variant="outline"
+                                        class="hover:border-primary/50 hover:bg-primary/5 hover:text-primary w-full border-dashed"
+                                    >
                                         <Plus class="mr-1 h-4 w-4" />
                                         {{ $t('Add a question') }}
                                     </Button>
@@ -589,7 +600,7 @@ const statusLabel = computed(() => {
                                     <DropdownMenuLabel>{{ $t('Question type') }}</DropdownMenuLabel>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem v-for="item in fieldPalette" :key="item.type" @click="addField(section, item.type)">
-                                        <component :is="item.icon" class="mr-2 h-4 w-4 text-muted-foreground" />
+                                        <component :is="item.icon" class="text-muted-foreground mr-2 h-4 w-4" />
                                         {{ $t(item.label) }}
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
@@ -599,7 +610,7 @@ const statusLabel = computed(() => {
                 </template>
             </draggable>
 
-            <Button variant="outline" class="w-fit" @click="addSection">
+            <Button variant="outline" class="hover:border-primary/50 hover:bg-primary/5 hover:text-primary w-full border-dashed" @click="addSection">
                 <ListPlus class="mr-1 h-4 w-4" />
                 {{ $t('Add a section') }}
             </Button>
@@ -617,9 +628,9 @@ const statusLabel = computed(() => {
                     <div class="grid gap-2">
                         <Label for="form-slug">{{ $t('Public link') }}</Label>
                         <div
-                            class="flex items-center rounded-md border border-input bg-background px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-ring"
+                            class="border-input bg-background focus-within:ring-ring flex items-center rounded-md border px-3 py-2 text-sm focus-within:ring-2"
                         >
-                            <span class="whitespace-nowrap text-muted-foreground">{{ publicBaseUrl }}</span>
+                            <span class="text-muted-foreground whitespace-nowrap">{{ publicBaseUrl }}</span>
                             <input
                                 id="form-slug"
                                 v-model="settingsForm.slug"
@@ -628,7 +639,7 @@ const statusLabel = computed(() => {
                                 maxlength="32"
                             />
                         </div>
-                        <p class="text-xs text-muted-foreground">
+                        <p class="text-muted-foreground text-xs">
                             {{ $t('Lowercase letters, numbers and hyphens only. Changing this breaks previously shared links.') }}
                         </p>
                         <InputError :message="settingsForm.errors.slug" />
@@ -640,9 +651,9 @@ const statusLabel = computed(() => {
                             <input
                                 v-model="settingsForm.primary_color"
                                 type="color"
-                                class="h-9 w-14 cursor-pointer rounded border bg-background p-1"
+                                class="bg-background h-9 w-14 cursor-pointer rounded border p-1"
                             />
-                            <span class="text-sm text-muted-foreground">{{ settingsForm.primary_color }}</span>
+                            <span class="text-muted-foreground text-sm">{{ settingsForm.primary_color }}</span>
                         </div>
                         <InputError :message="settingsForm.errors.primary_color" />
                     </div>
@@ -651,7 +662,7 @@ const statusLabel = computed(() => {
                         <Checkbox id="require-email" v-model:checked="settingsForm.require_email_verification" class="mt-0.5" />
                         <div class="grid gap-1">
                             <Label for="require-email" class="font-normal">{{ $t('Require email verification') }}</Label>
-                            <p class="text-xs text-muted-foreground">
+                            <p class="text-muted-foreground text-xs">
                                 {{ $t('Respondents must confirm their email address with a code before submitting.') }}
                             </p>
                         </div>
@@ -671,7 +682,7 @@ const statusLabel = computed(() => {
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                class="h-8 w-8 shrink-0 text-muted-foreground"
+                                class="text-muted-foreground h-8 w-8 shrink-0"
                                 :aria-label="$t('Remove')"
                                 @click="removeNotificationEmail(index)"
                             >
@@ -682,7 +693,7 @@ const statusLabel = computed(() => {
                             <Plus class="mr-1 h-4 w-4" />
                             {{ $t('Add recipient') }}
                         </Button>
-                        <p class="text-xs text-muted-foreground">
+                        <p class="text-muted-foreground text-xs">
                             {{ $t('Add at least one recipient, otherwise no notification will be sent.') }}
                         </p>
                         <InputError :message="settingsForm.errors.notification_emails" />
@@ -717,7 +728,7 @@ const statusLabel = computed(() => {
                             max="3650"
                             :placeholder="String(defaultRetentionDays)"
                         />
-                        <p class="text-xs text-muted-foreground">
+                        <p class="text-muted-foreground text-xs">
                             {{
                                 $t('Responses and files are automatically deleted after this period (GDPR). Empty = default (:days days).', {
                                     days: String(defaultRetentionDays),
@@ -733,7 +744,7 @@ const statusLabel = computed(() => {
                             id="success-message"
                             v-model="settingsForm.success_message"
                             rows="2"
-                            class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
                             :placeholder="$t('Shown after a response is submitted')"
                         ></textarea>
                         <InputError :message="settingsForm.errors.success_message" />
@@ -785,7 +796,7 @@ const statusLabel = computed(() => {
                     <div v-for="share in form.shares" :key="share.id" class="flex items-center justify-between gap-3 px-3 py-2">
                         <div class="flex flex-col">
                             <span class="text-sm font-medium">{{ share.user.name }}</span>
-                            <span class="text-xs text-muted-foreground">{{ share.user.email }}</span>
+                            <span class="text-muted-foreground text-xs">{{ share.user.email }}</span>
                         </div>
                         <Button
                             variant="ghost"
@@ -798,11 +809,11 @@ const statusLabel = computed(() => {
                         </Button>
                     </div>
                 </div>
-                <p v-else class="text-sm text-muted-foreground">{{ $t('Not shared with anyone yet.') }}</p>
+                <p v-else class="text-muted-foreground text-sm">{{ $t('Not shared with anyone yet.') }}</p>
 
                 <div v-if="form.can_transfer_ownership" class="grid gap-2 border-t pt-4">
                     <Label>{{ $t('Transfer ownership') }}</Label>
-                    <p class="text-xs text-muted-foreground">
+                    <p class="text-muted-foreground text-xs">
                         {{ $t("You'll keep access to the form as a collaborator after the transfer.") }}
                     </p>
                     <form class="flex items-start gap-2" @submit.prevent="askTransferConfirmation">

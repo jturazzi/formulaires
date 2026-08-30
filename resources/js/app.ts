@@ -3,7 +3,7 @@ import '../css/app.css';
 import { createInertiaApp } from '@inertiajs/vue3';
 import * as Sentry from '@sentry/vue';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
-import { i18nVue } from 'laravel-vue-i18n';
+import { i18nVue, loadLanguageAsync } from 'laravel-vue-i18n';
 import type { DefineComponent } from 'vue';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from 'ziggy-js';
@@ -37,18 +37,26 @@ createInertiaApp({
             });
         }
 
+        const lang = (props.initialPage.props.locale as string) || 'fr';
+
         app.use(plugin)
             .use(ZiggyVue)
             .use(i18nVue, {
-                lang: (props.initialPage.props.locale as string) || 'fr',
+                lang,
                 fallbackLang: 'en',
                 resolve: async (lang: string) => {
-                    const langs = import.meta.glob<{ default: Record<string, string> }>('../../lang/*.json');
-                    const loader = langs[`../../lang/${lang}.json`];
-                    return loader ? await loader() : { default: {} };
+                    // Bundled eagerly (not a lazy per-locale chunk) so translations are already
+                    // in memory — loadLanguageAsync below can then resolve them synchronously,
+                    // instead of racing the very first render with a network-fetched chunk.
+                    const langs = import.meta.glob<{ default: Record<string, string> }>('../../lang/*.json', { eager: true });
+                    return langs[`../../lang/${lang}.json`] ?? { default: {} };
                 },
-            })
-            .mount(el);
+            });
+
+        // Wait for the initial translations to be loaded before mounting: otherwise the first
+        // render (e.g. the page <Head title>) briefly shows raw/English text until the plugin's
+        // background load finishes and forces a re-render.
+        loadLanguageAsync(lang).then(() => app.mount(el));
     },
     progress: {
         color: '#4B5563',

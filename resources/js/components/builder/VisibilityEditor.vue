@@ -115,25 +115,28 @@ const onDependsOnChange = (condition: VisibilityCondition, fieldId: number) => {
 };
 
 const needsValue = (operator: VisibilityOperator) => !VALUELESS_OPERATORS.includes(operator);
+
+const expanded = computed(() => mode.value !== 'always');
 </script>
 
 <template>
-    <div class="grid gap-2 rounded-md border border-dashed p-3">
-        <Label class="text-muted-foreground">{{ $t('Visibility') }}</Label>
-
-        <select v-model="mode" :class="[selectClass, errors.mode ? 'border-red-500 ring-1 ring-red-500' : '']">
-            <option value="always">{{ $t('Always visible') }}</option>
-            <option value="visible_if" :disabled="selectableFields.length === 0">{{ $t('Visible if') }}</option>
-            <option value="hidden_if" :disabled="selectableFields.length === 0">{{ $t('Hidden if') }}</option>
-        </select>
+    <div class="grid gap-2" :class="expanded ? 'rounded-md border border-dashed p-3' : ''">
+        <div class="flex items-center gap-2">
+            <Label class="text-muted-foreground shrink-0 text-xs font-medium">{{ $t('Visibility') }}</Label>
+            <select v-model="mode" :class="[selectClass, 'h-8 w-auto', errors.mode ? 'border-red-500 ring-1 ring-red-500' : '']">
+                <option value="always">{{ $t('Always visible') }}</option>
+                <option value="visible_if" :disabled="selectableFields.length === 0">{{ $t('Visible if') }}</option>
+                <option value="hidden_if" :disabled="selectableFields.length === 0">{{ $t('Hidden if') }}</option>
+            </select>
+        </div>
         <InputError :message="errors.mode || errors.conditions" />
 
-        <p v-if="selectableFields.length === 0" class="text-xs text-muted-foreground">
+        <p v-if="mode !== 'always' && selectableFields.length === 0" class="text-muted-foreground text-xs">
             {{ $t('Add another question first, then come back here to set a condition.') }}
         </p>
 
         <template v-if="mode !== 'always' && selectableFields.length > 0">
-            <div v-if="conditions.length > 1" class="flex items-center gap-2 text-sm text-muted-foreground">
+            <div v-if="conditions.length > 1" class="text-muted-foreground flex items-center gap-2 text-sm">
                 <span>{{ $t('Match') }}</span>
                 <select v-model="logic" :class="[selectClass, 'w-auto']">
                     <option value="all">{{ $t('all conditions') }}</option>
@@ -180,7 +183,7 @@ const needsValue = (operator: VisibilityOperator) => !VALUELESS_OPERATORS.includ
                                   : 'text'
                         "
                         :class="[
-                            'flex h-9 w-40 rounded-md border border-input bg-background px-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                            'border-input bg-background ring-offset-background focus-visible:ring-ring flex h-9 w-40 rounded-md border px-2 text-sm focus-visible:ring-2 focus-visible:outline-none',
                             conditionError(index, 'value') ? 'border-red-500 ring-1 ring-red-500' : '',
                         ]"
                     />
@@ -188,7 +191,7 @@ const needsValue = (operator: VisibilityOperator) => !VALUELESS_OPERATORS.includ
                     <Button
                         variant="ghost"
                         size="icon"
-                        class="h-8 w-8 shrink-0 text-muted-foreground"
+                        class="text-muted-foreground h-8 w-8 shrink-0"
                         :disabled="conditions.length <= 1"
                         :aria-label="$t('Remove')"
                         @click="removeCondition(index)"

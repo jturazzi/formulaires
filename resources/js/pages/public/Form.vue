@@ -92,6 +92,9 @@ const toggleCheckbox = (fieldId: number, choice: string, checked: boolean) => {
 
 const isChecked = (fieldId: number, choice: string) => ((submission.answers[fieldId] as string[] | undefined) ?? []).includes(choice);
 
+// Accent-tinted highlight for a selected radio/checkbox row (accent is always a #rrggbb hex value).
+const selectedRowStyle = (selected: boolean) => (selected ? { borderColor: accent.value, backgroundColor: `${accent.value}0d` } : {});
+
 /* "Other" free-text answers -------------------------------------------- */
 
 const OTHER_VALUE = '__other__';
@@ -243,7 +246,7 @@ const submit = () => {
 <template>
     <Head :title="form.title" />
 
-    <div class="min-h-screen bg-muted/40 pb-16" :style="{ '--form-accent': accent }">
+    <div class="bg-muted/40 min-h-screen pb-16" :style="{ '--form-accent': accent }">
         <div class="h-2 w-full" :style="{ backgroundColor: accent }"></div>
 
         <div class="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 pt-10">
@@ -252,10 +255,10 @@ const submit = () => {
             </div>
 
             <!-- Header -->
-            <div class="rounded-xl border bg-background p-8 shadow-sm">
+            <div class="bg-background border-border/60 rounded-2xl border p-8 shadow-sm">
                 <img v-if="form.logo_url" :src="form.logo_url" alt="Logo" class="mb-6 max-h-20 object-contain" />
                 <h1 class="text-2xl font-bold">{{ form.title }}</h1>
-                <p v-if="form.description" class="mt-2 whitespace-pre-line text-muted-foreground">{{ form.description }}</p>
+                <p v-if="form.description" class="text-muted-foreground mt-2 whitespace-pre-line">{{ form.description }}</p>
             </div>
 
             <!-- Preview notice -->
@@ -267,18 +270,18 @@ const submit = () => {
             </div>
 
             <!-- Closed notice -->
-            <div v-if="closed" class="rounded-xl border bg-background p-8 text-center shadow-sm">
+            <div v-if="closed" class="bg-background border-border/60 rounded-2xl border p-8 text-center shadow-sm">
                 <p class="font-medium">{{ $t('This form is no longer accepting responses.') }}</p>
             </div>
 
             <form v-else class="flex flex-col gap-6" @submit.prevent="submit">
                 <!-- Email verification -->
-                <div v-if="form.require_email_verification" class="rounded-xl border bg-background p-6 shadow-sm">
+                <div v-if="form.require_email_verification" class="bg-background border-border/60 rounded-2xl border p-6 shadow-sm">
                     <h2 class="flex items-center gap-2 font-semibold">
                         <MailCheck class="h-5 w-5" :style="{ color: accent }" />
                         {{ $t('Verify your email address') }}
                     </h2>
-                    <p class="mt-1 text-sm text-muted-foreground">
+                    <p class="text-muted-foreground mt-1 text-sm">
                         {{ $t('This form requires a verified email address. Enter your email, receive a code, and type it below.') }}
                     </p>
                     <div class="mt-4 grid gap-3">
@@ -316,24 +319,24 @@ const submit = () => {
                 </div>
 
                 <!-- Sections -->
-                <div v-for="section in form.sections" :key="section.id" class="rounded-xl border bg-background p-6 shadow-sm">
+                <div v-for="section in form.sections" :key="section.id" class="bg-background border-border/60 rounded-2xl border p-6 shadow-sm">
                     <div v-if="section.title || section.description" class="mb-5 border-b pb-4">
                         <h2 v-if="section.title" class="text-lg font-semibold">{{ section.title }}</h2>
-                        <p v-if="section.description" class="mt-1 whitespace-pre-line text-sm text-muted-foreground">{{ section.description }}</p>
+                        <p v-if="section.description" class="text-muted-foreground mt-1 text-sm whitespace-pre-line">{{ section.description }}</p>
                     </div>
 
                     <div class="flex flex-col gap-6">
                         <template v-for="field in section.fields" :key="field.id">
                             <template v-if="isFieldVisible(field)">
                                 <!-- Static text block -->
-                                <p v-if="field.type === 'info'" class="whitespace-pre-line text-sm">{{ field.label }}</p>
+                                <p v-if="field.type === 'info'" class="text-sm whitespace-pre-line">{{ field.label }}</p>
 
                                 <div v-else :id="`field-block-${field.id}`" class="grid gap-2">
                                     <Label :for="`field-${field.id}`" class="text-base font-medium">
                                         {{ field.label }}
                                         <span v-if="field.required" class="text-red-600" aria-hidden="true">*</span>
                                     </Label>
-                                    <p v-if="field.description" class="text-sm text-muted-foreground">{{ field.description }}</p>
+                                    <p v-if="field.description" class="text-muted-foreground text-sm">{{ field.description }}</p>
 
                                     <Input
                                         v-if="field.type === 'text'"
@@ -351,7 +354,7 @@ const submit = () => {
                                         rows="4"
                                         :maxlength="field.options?.max_length ?? 5000"
                                         :required="field.required"
-                                        class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                        class="border-input bg-background ring-offset-background focus-visible:ring-ring flex w-full rounded-md border px-3 py-2 text-base focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none md:text-sm"
                                         :class="errorClass(field.id)"
                                     ></textarea>
 
@@ -390,8 +393,9 @@ const submit = () => {
                                         <label
                                             v-for="choice in field.options?.choices ?? []"
                                             :key="choice"
-                                            class="flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                                            class="hover:bg-muted/50 flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors"
                                             :class="errorClass(field.id)"
+                                            :style="selectedRowStyle(!otherActive[field.id] && submission.answers[field.id] === choice)"
                                         >
                                             <input
                                                 type="radio"
@@ -406,7 +410,8 @@ const submit = () => {
                                         </label>
                                         <template v-if="field.options?.allow_other">
                                             <label
-                                                class="flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                                                class="hover:bg-muted/50 flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors"
+                                                :style="selectedRowStyle(!!otherActive[field.id])"
                                             >
                                                 <input
                                                     type="radio"
@@ -431,8 +436,9 @@ const submit = () => {
                                         <label
                                             v-for="choice in field.options?.choices ?? []"
                                             :key="choice"
-                                            class="flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                                            class="hover:bg-muted/50 flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors"
                                             :class="errorClass(field.id)"
+                                            :style="selectedRowStyle(isChecked(field.id, choice))"
                                         >
                                             <input
                                                 type="checkbox"
@@ -445,7 +451,8 @@ const submit = () => {
                                         </label>
                                         <template v-if="field.options?.allow_other">
                                             <label
-                                                class="flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                                                class="hover:bg-muted/50 flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors"
+                                                :style="selectedRowStyle(!!otherChecked[field.id])"
                                             >
                                                 <input
                                                     type="checkbox"
@@ -470,7 +477,7 @@ const submit = () => {
                                         :id="`field-${field.id}`"
                                         :value="selectDropdownValue(field.id)"
                                         :required="field.required"
-                                        class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                        class="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-base focus-visible:ring-2 focus-visible:outline-none md:text-sm"
                                         :class="errorClass(field.id)"
                                         @change="onDropdownChange(field.id, ($event.target as HTMLSelectElement).value)"
                                     >
@@ -491,7 +498,7 @@ const submit = () => {
                                         :id="`field-${field.id}`"
                                         type="file"
                                         :required="field.required"
-                                        class="flex w-full cursor-pointer rounded-md border border-input bg-background px-3 py-2 text-sm file:mr-3 file:border-0 file:bg-transparent file:font-medium"
+                                        class="border-input bg-background flex w-full cursor-pointer rounded-md border px-3 py-2 text-base file:mr-3 file:border-0 file:bg-transparent file:text-sm file:font-medium md:text-sm"
                                         :class="errorClass(field.id)"
                                         @change="setFile(field.id, $event)"
                                     />
@@ -506,7 +513,7 @@ const submit = () => {
                 <!-- GDPR consent -->
                 <div
                     data-consent-block
-                    class="rounded-xl border bg-background p-6 shadow-sm"
+                    class="bg-background border-border/60 rounded-2xl border p-6 shadow-sm"
                     :class="submission.errors.consent ? 'border-red-500 ring-1 ring-red-500' : ''"
                 >
                     <label class="flex cursor-pointer items-start gap-3">
@@ -519,7 +526,7 @@ const submit = () => {
                             >.
                         </span>
                     </label>
-                    <p class="mt-3 text-xs text-muted-foreground">
+                    <p class="text-muted-foreground mt-3 text-xs">
                         {{
                             $t('Your answers and uploaded documents will be kept for :days days, then automatically deleted (GDPR).', {
                                 days: String(form.retention_days),
@@ -532,7 +539,7 @@ const submit = () => {
                 <Button
                     type="submit"
                     size="lg"
-                    class="w-full text-white"
+                    class="w-full text-white transition-[filter] hover:brightness-90"
                     :style="{ backgroundColor: accent }"
                     :disabled="submission.processing || preview"
                     :title="preview ? $t('Publish the form to accept responses.') : undefined"
@@ -546,7 +553,7 @@ const submit = () => {
                 </p>
             </form>
 
-            <footer class="flex items-center justify-center gap-4 pt-4 text-xs text-muted-foreground">
+            <footer class="text-muted-foreground flex items-center justify-center gap-4 pt-4 text-xs">
                 <span>{{ page.props.name }}</span>
                 <Link :href="route('terms')" class="hover:text-foreground">{{ $t('Terms of use') }}</Link>
                 <Link :href="route('privacy')" class="hover:text-foreground">{{ $t('Privacy policy') }}</Link>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import AppLogoIcon from '@/components/AppLogoIcon.vue';
 import { type SharedData } from '@/types';
 import { usePage } from '@inertiajs/vue3';
+import { FileText } from '@lucide/vue';
 
 interface Props {
     class?: string;
@@ -13,10 +13,10 @@ const page = usePage<SharedData>();
 </script>
 
 <template>
-    <div class="flex aspect-square size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-        <AppLogoIcon class="size-5 fill-current text-white dark:text-black" />
+    <div class="flex aspect-square size-8 items-center justify-center">
+        <FileText class="size-5" />
     </div>
     <div class="ml-1 grid flex-1 text-left text-sm">
-        <span class="mb-0.5 truncate font-semibold leading-none">{{ page.props.name }}</span>
+        <span class="mb-0.5 truncate leading-none font-semibold">{{ page.props.name }}</span>
     </div>
 </template>
