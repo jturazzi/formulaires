@@ -57,6 +57,7 @@ class FormSubmissionService
                 'text' => [$required, 'string', 'max:'.($options['max_length'] ?? 255)],
                 'textarea' => [$required, 'string', 'max:'.($options['max_length'] ?? 5000)],
                 'email' => [$required, 'email:filter', 'max:255'],
+                'phone' => [$required, 'string', 'max:30', 'regex:/^[0-9+\-\s().]+$/'],
                 'number' => [
                     $required,
                     'numeric',
@@ -69,10 +70,13 @@ class FormSubmissionService
                     ...(isset($options['min_date']) ? ['after_or_equal:'.$options['min_date']] : []),
                     ...(isset($options['max_date']) ? ['before_or_equal:'.$options['max_date']] : []),
                 ],
+                'time' => [$required, 'date_format:H:i'],
                 'choice', 'dropdown' => $allowOther
                     ? [$required, 'string', 'max:500']
                     : [$required, 'string', Rule::in($choices)],
                 'checkboxes' => [$required, 'array', ...($field->required ? ['min:1'] : [])],
+                'rating_star' => [$required, 'integer', 'between:1,5'],
+                'rating_number' => [$required, 'integer', 'between:0,10'],
                 'file' => [
                     $required,
                     'file',

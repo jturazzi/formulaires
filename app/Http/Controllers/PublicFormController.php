@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Mail\NewResponseMail;
 use App\Models\Form;
+use App\Models\FormField;
+use App\Models\FormSection;
 use App\Models\RespondentVerification;
 use App\Services\FormSubmissionService;
 use Illuminate\Http\RedirectResponse;
@@ -102,11 +104,11 @@ class PublicFormController extends Controller
             'primary_color' => $form->primary_color,
             'require_email_verification' => $form->require_email_verification,
             'retention_days' => $form->effectiveRetentionDays(),
-            'sections' => $form->sections->map(fn ($section) => [
+            'sections' => $form->sections->map(fn (FormSection $section) => [
                 'id' => $section->id,
                 'title' => $section->title,
                 'description' => $section->description,
-                'fields' => $section->fields->map(fn ($field) => [
+                'fields' => $section->fields->map(fn (FormField $field) => [
                     'id' => $field->id,
                     'type' => $field->type,
                     'label' => $field->label,
@@ -114,8 +116,8 @@ class PublicFormController extends Controller
                     'required' => $field->required,
                     'options' => $field->options,
                     'visibility' => $field->visibility,
-                ]),
-            ]),
+                ])->all(),
+            ])->all(),
         ];
     }
 }

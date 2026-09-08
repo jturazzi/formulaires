@@ -26,18 +26,22 @@ import {
     CheckSquare,
     ChevronDown,
     CircleDot,
+    Clock,
     EyeOff,
     ExternalLink,
     FileUp,
+    Gauge,
     Hash,
     ImageIcon,
     Inbox,
     LinkIcon,
     ListPlus,
     Mail,
+    Phone,
     Plus,
     Save,
     Settings2,
+    Star,
     TextCursorInput,
     Trash2,
     Type,
@@ -70,9 +74,35 @@ const syncing = ref(false);
 const structureError = ref<string | null>(null);
 const structureFieldErrors = ref<Record<string, string>>({});
 
+// True for the duration of the structure-save request itself (including the
+// resync that follows it), so the "leave page?" guard below doesn't mistake
+// the save's own outgoing request for a real navigation away from the page.
+const savingInProgress = ref(false);
+
+const AUTOSAVE_DELAY_MS = 1500;
+let autoSaveTimeout: ReturnType<typeof setTimeout> | undefined;
+
+// A question's label is always required server-side. Autosaving a newly
+// added, still-empty question would just bounce off a validation error, so
+// hold off until every question actually has some text in it — the manual
+// Save button still works (and still reports the error) in the meantime.
+const hasEmptyLabel = () => sections.some((section) => section.fields.some((field) => !field.label.trim()));
+
+const scheduleAutoSave = () => {
+    clearTimeout(autoSaveTimeout);
+    autoSaveTimeout = setTimeout(() => {
+        autoSaveTimeout = undefined;
+
+        if (structureDirty.value && !savingInProgress.value && !hasEmptyLabel()) {
+            saveStructure();
+        }
+    }, AUTOSAVE_DELAY_MS);
+};
+
 const markDirty = () => {
     if (!syncing.value) {
         structureDirty.value = true;
+        scheduleAutoSave();
     }
 };
 
@@ -114,18 +144,26 @@ const resyncSections = async (fresh: FormSectionData[]) => {
     syncing.value = false;
 };
 
-const fieldPalette: { type: FieldType; label: string; icon: typeof Type }[] = [
+const fieldPaletteItems: { type: FieldType; label: string; icon: typeof Type }[] = [
     { type: 'text', label: 'Short text', icon: TextCursorInput },
     { type: 'textarea', label: 'Long text', icon: AlignLeft },
     { type: 'email', label: 'Email', icon: Mail },
+    { type: 'phone', label: 'Phone number', icon: Phone },
     { type: 'number', label: 'Number', icon: Hash },
     { type: 'date', label: 'Date', icon: Calendar },
+    { type: 'time', label: 'Time', icon: Clock },
     { type: 'choice', label: 'Single choice', icon: CircleDot },
     { type: 'checkboxes', label: 'Multiple choice', icon: CheckSquare },
     { type: 'dropdown', label: 'Dropdown', icon: ChevronDown },
     { type: 'file', label: 'File upload', icon: FileUp },
+    { type: 'rating_star', label: 'Star rating', icon: Star },
+    { type: 'rating_number', label: 'Rating (0 to 10)', icon: Gauge },
     { type: 'info', label: 'Text block', icon: Type },
 ];
+
+// Sorted by the translated label so the menu reads alphabetically in whichever
+// language is active — re-sorts automatically when the user switches locale.
+const fieldPalette = computed(() => [...fieldPaletteItems].sort((a, b) => trans(a.label).localeCompare(trans(b.label))));
 
 const addField = (section: FormSectionData, type: FieldType) => {
     section.fields.push({
@@ -173,7 +211,9 @@ let stopInertiaGuard: (() => void) | undefined;
 onMounted(() => {
     window.addEventListener('beforeunload', beforeUnloadHandler);
     stopInertiaGuard = router.on('before', () => {
-        if (!structureDirty.value) {
+        // The structure-save request (manual or auto-saved) is itself an
+        // Inertia visit — don't let it trip its own "leave page?" guard.
+        if (!structureDirty.value || savingInProgress.value) {
             return true;
         }
 
@@ -184,6 +224,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
     window.removeEventListener('beforeunload', beforeUnloadHandler);
     stopInertiaGuard?.();
+    clearTimeout(autoSaveTimeout);
 });
 
 const sectionToRemove = ref<number | null>(null);
@@ -199,6 +240,10 @@ const confirmRemoveSection = () => {
 };
 
 const saveStructure = () => {
+    clearTimeout(autoSaveTimeout);
+    autoSaveTimeout = undefined;
+
+    savingInProgress.value = true;
     savingStructure.value = true;
     structureError.value = null;
     structureFieldErrors.value = {};
@@ -218,7 +263,17 @@ const saveStructure = () => {
                 structureFieldErrors.value = errors as Record<string, string>;
                 structureError.value = Object.values(errors)[0] ?? trans('An error occurred while saving.');
             },
-            onFinish: () => (savingStructure.value = false),
+            onFinish: () => {
+                savingStructure.value = false;
+                savingInProgress.value = false;
+
+                // Edits made while this request was in flight (or a failed save)
+                // leave the structure dirty — make sure that isn't stranded
+                // without a pending autosave.
+                if (structureDirty.value) {
+                    scheduleAutoSave();
+                }
+            },
         },
     );
 };
@@ -391,7 +446,7 @@ const statusLabel = computed(() => {
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
             <!-- Toolbar -->
-            <div class="bg-background/95 sticky top-0 z-10 -mx-6 flex flex-wrap items-center justify-between gap-3 px-6 py-3 backdrop-blur">
+            <div class="bg-background/95 sticky top-16 z-10 -mx-6 flex flex-wrap items-center justify-between gap-3 px-6 py-3 backdrop-blur">
                 <div class="flex flex-wrap items-center gap-3">
                     <span
                         class="rounded-full px-2.5 py-0.5 text-xs font-medium"
@@ -456,7 +511,7 @@ const statusLabel = computed(() => {
 
                     <Button size="sm" :disabled="!structureDirty || savingStructure" @click="saveStructure">
                         <Save class="mr-1 h-4 w-4" />
-                        {{ structureDirty ? $t('Save') : $t('Saved') }}
+                        {{ savingStructure ? $t('Saving…') : structureDirty ? $t('Save') : $t('Saved') }}
                     </Button>
                 </div>
             </div>

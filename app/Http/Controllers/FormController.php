@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Form;
 use App\Models\FormField;
+use App\Models\FormSection;
 use App\Models\FormShare;
 use App\Models\Setting;
 use App\Models\User;
@@ -270,11 +271,11 @@ class FormController extends Controller
                     ],
                 ])
                 : null,
-            'sections' => $form->sections->map(fn ($section) => [
+            'sections' => $form->sections->map(fn (FormSection $section) => [
                 'id' => $section->id,
                 'title' => $section->title,
                 'description' => $section->description,
-                'fields' => $section->fields->map(fn ($field) => [
+                'fields' => $section->fields->map(fn (FormField $field) => [
                     'id' => $field->id,
                     'type' => $field->type,
                     'label' => $field->label,
@@ -282,8 +283,8 @@ class FormController extends Controller
                     'required' => $field->required,
                     'options' => $field->options,
                     'visibility' => $field->visibility,
-                ]),
-            ]),
+                ])->all(),
+            ])->all(),
         ];
     }
 }

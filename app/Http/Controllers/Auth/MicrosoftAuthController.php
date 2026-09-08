@@ -9,10 +9,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Facades\Socialite;
+use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirectResponse;
 
 class MicrosoftAuthController extends Controller
 {
-    public function redirect(): RedirectResponse
+    public function redirect(): SymfonyRedirectResponse
     {
         abort_unless(config('services.microsoft.client_id'), 404);
 
@@ -67,7 +68,13 @@ class MicrosoftAuthController extends Controller
         }
 
         $user->azure_id = $microsoftUser->getId();
-        $user->avatar = $microsoftUser->getAvatar();
+
+        try {
+            $user->avatar = $microsoftUser->getAvatar();
+        } catch (\Throwable $exception) {
+            Log::warning('Microsoft SSO avatar fetch failed', ['exception' => $exception]);
+        }
+
         $user->email_verified_at ??= now();
         $user->save();
 

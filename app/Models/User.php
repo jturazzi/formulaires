@@ -3,12 +3,29 @@
 namespace App\Models;
 
 use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property int $id
+ * @property string $name
+ * @property string $email
+ * @property string $role
+ * @property Carbon|null $email_verified_at
+ * @property string|null $password
+ * @property string|null $azure_id
+ * @property string|null $avatar
+ * @property string|null $remember_token
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read EloquentCollection<int, Form> $forms
+ * @property-read EloquentCollection<int, Form> $sharedForms
+ */
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -70,11 +87,13 @@ class User extends Authenticatable
         );
     }
 
+    /** @return HasMany<Form, $this> */
     public function forms(): HasMany
     {
         return $this->hasMany(Form::class);
     }
 
+    /** @return BelongsToMany<Form, $this> */
     public function sharedForms(): BelongsToMany
     {
         return $this->belongsToMany(Form::class, 'form_shares')->withTimestamps();

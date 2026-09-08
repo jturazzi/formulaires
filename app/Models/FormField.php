@@ -3,13 +3,32 @@
 namespace App\Models;
 
 use Database\Factories\FormFieldFactory;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * @property int $id
+ * @property int $form_id
+ * @property int|null $form_section_id
+ * @property string $type
+ * @property string $label
+ * @property string|null $description
+ * @property bool $required
+ * @property array<string, mixed>|null $options
+ * @property array{mode?: string, logic?: string, conditions?: list<array{field_id: int, operator: string, value?: string|null}>}|null $visibility
+ * @property int $position
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read Form $form
+ * @property-read FormSection|null $section
+ * @property-read EloquentCollection<int, Answer> $answers
+ */
 class FormField extends Model
 {
     /** @use HasFactory<FormFieldFactory> */
@@ -19,12 +38,16 @@ class FormField extends Model
         'text',
         'textarea',
         'email',
+        'phone',
         'number',
         'date',
+        'time',
         'choice',
         'checkboxes',
         'dropdown',
         'file',
+        'rating_star',
+        'rating_number',
         'info',
     ];
 
@@ -64,16 +87,19 @@ class FormField extends Model
         });
     }
 
+    /** @return BelongsTo<Form, $this> */
     public function form(): BelongsTo
     {
         return $this->belongsTo(Form::class);
     }
 
+    /** @return HasMany<Answer, $this> */
     public function answers(): HasMany
     {
         return $this->hasMany(Answer::class);
     }
 
+    /** @return BelongsTo<FormSection, $this> */
     public function section(): BelongsTo
     {
         return $this->belongsTo(FormSection::class, 'form_section_id');

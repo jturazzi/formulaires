@@ -114,7 +114,7 @@ class FormResponseController extends Controller
 
         $this->authorize('view', $form);
 
-        abort_unless($answer->file_path, 404);
+        abort_unless($answer->file_path !== null, 404);
 
         if ($request->boolean('preview')) {
             return Storage::disk('local')->response($answer->file_path, $answer->file_name);

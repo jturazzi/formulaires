@@ -1,21 +1,25 @@
 <script setup lang="ts">
-import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
+import AppFooter from '@/components/AppFooter.vue';
+import AppHeader from '@/components/AppHeader.vue';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
-import { SidebarTrigger } from '@/components/ui/sidebar';
+import FlashToast from '@/components/FlashToast.vue';
 import type { BreadcrumbItemType } from '@/types';
 
-defineProps<{
+interface Props {
     breadcrumbs?: BreadcrumbItemType[];
-}>();
+}
+
+withDefaults(defineProps<Props>(), {
+    breadcrumbs: () => [],
+});
 </script>
 
 <template>
-    <header
-        class="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-sidebar-border/70 px-6 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12 md:px-4"
-    >
-        <div class="flex items-center gap-2">
-            <SidebarTrigger class="-ml-1" />
-            <template v-if="breadcrumbs.length > 0">
+    <div class="bg-background flex min-h-screen w-full flex-col">
+        <AppHeader />
+
+        <div v-if="breadcrumbs.length > 0" class="border-b">
+            <div class="mx-auto w-full max-w-7xl px-4 py-2 md:px-6">
                 <Breadcrumb>
                     <BreadcrumbList>
                         <template v-for="(item, index) in breadcrumbs" :key="index">
@@ -33,8 +37,14 @@ defineProps<{
                         </template>
                     </BreadcrumbList>
                 </Breadcrumb>
-            </template>
+            </div>
         </div>
-        <LanguageSwitcher />
-    </header>
+
+        <main class="flex w-full flex-1 flex-col">
+            <slot />
+        </main>
+
+        <AppFooter />
+        <FlashToast />
+    </div>
 </template>

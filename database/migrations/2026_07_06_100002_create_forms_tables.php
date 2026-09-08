@@ -40,7 +40,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('form_id')->constrained()->cascadeOnDelete();
             $table->foreignId('form_section_id')->nullable()->constrained()->nullOnDelete();
-            $table->string('type'); // text | textarea | email | number | date | choice | checkboxes | dropdown | file | info
+            $table->string('type'); // text | textarea | email | phone | number | date | time | choice | checkboxes | dropdown | file | rating_star | rating_number | info
             $table->string('label', 1000);
             $table->text('description')->nullable();
             $table->boolean('required')->default(false);

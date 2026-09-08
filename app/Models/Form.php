@@ -3,14 +3,42 @@
 namespace App\Models;
 
 use Database\Factories\FormFactory;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property int $user_id
+ * @property string $slug
+ * @property string $title
+ * @property string|null $description
+ * @property string|null $logo_path
+ * @property string|null $primary_color
+ * @property string $status
+ * @property bool $require_email_verification
+ * @property bool $notify_on_response
+ * @property list<string>|null $notification_emails
+ * @property int|null $max_responses
+ * @property Carbon|null $expires_at
+ * @property int|null $retention_days
+ * @property string|null $success_message
+ * @property Carbon|null $published_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read User $user
+ * @property-read EloquentCollection<int, FormSection> $sections
+ * @property-read EloquentCollection<int, FormField> $fields
+ * @property-read EloquentCollection<int, Response> $responses
+ * @property-read EloquentCollection<int, FormShare> $shares
+ * @property-read EloquentCollection<int, User> $collaborators
+ */
 class Form extends Model
 {
     /** @use HasFactory<FormFactory> */
@@ -65,31 +93,37 @@ class Form extends Model
         });
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /** @return HasMany<FormSection, $this> */
     public function sections(): HasMany
     {
         return $this->hasMany(FormSection::class)->orderBy('position');
     }
 
+    /** @return HasMany<FormField, $this> */
     public function fields(): HasMany
     {
         return $this->hasMany(FormField::class)->orderBy('position');
     }
 
+    /** @return HasMany<Response, $this> */
     public function responses(): HasMany
     {
         return $this->hasMany(Response::class);
     }
 
+    /** @return HasMany<FormShare, $this> */
     public function shares(): HasMany
     {
         return $this->hasMany(FormShare::class);
     }
 
+    /** @return BelongsToMany<User, $this> */
     public function collaborators(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'form_shares')->withTimestamps();

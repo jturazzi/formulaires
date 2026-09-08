@@ -19,6 +19,7 @@ export interface NavItem {
 export interface SharedData {
     [key: string]: unknown;
     name: string;
+    version: string;
     auth: Auth;
     locale: string;
     features: {
@@ -49,7 +50,21 @@ export interface User {
     updated_at: string;
 }
 
-export type FieldType = 'text' | 'textarea' | 'email' | 'number' | 'date' | 'choice' | 'checkboxes' | 'dropdown' | 'file' | 'info';
+export type FieldType =
+    | 'text'
+    | 'textarea'
+    | 'email'
+    | 'phone'
+    | 'number'
+    | 'date'
+    | 'time'
+    | 'choice'
+    | 'checkboxes'
+    | 'dropdown'
+    | 'file'
+    | 'rating_star'
+    | 'rating_number'
+    | 'info';
 
 export interface FieldOptions {
     choices?: string[];

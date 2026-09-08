@@ -155,8 +155,9 @@ return [
     'ulid' => 'Le champ :attribute doit être un ULID valide.',
     'uuid' => 'Le champ :attribute doit être un UUID valide',
     'custom' => [
-        'attribute-name' => [
-            'rule-name' => 'custom-message',
+        'answers.*' => [
+            'regex' => 'Le numéro de téléphone ne doit contenir que des chiffres, espaces et les caractères + - ( ).',
+            'date_format' => "L'heure doit être au format HH:MM (par exemple 14:30).",
         ],
     ],
 

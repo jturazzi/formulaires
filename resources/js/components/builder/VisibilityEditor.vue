@@ -25,12 +25,16 @@ const OPERATORS_BY_TYPE: Record<FieldType, VisibilityOperator[]> = {
     text: ['equals', 'not_equals', 'contains', 'not_contains', 'empty', 'not_empty'],
     textarea: ['equals', 'not_equals', 'contains', 'not_contains', 'empty', 'not_empty'],
     email: ['equals', 'not_equals', 'contains', 'not_contains', 'empty', 'not_empty'],
+    phone: ['equals', 'not_equals', 'contains', 'not_contains', 'empty', 'not_empty'],
     number: ['equals', 'not_equals', 'greater_than', 'less_than', 'empty', 'not_empty'],
     date: ['equals', 'not_equals', 'greater_than', 'less_than', 'empty', 'not_empty'],
+    time: ['equals', 'not_equals', 'greater_than', 'less_than', 'empty', 'not_empty'],
     choice: ['equals', 'not_equals', 'empty', 'not_empty'],
     dropdown: ['equals', 'not_equals', 'empty', 'not_empty'],
     checkboxes: ['contains', 'not_contains', 'empty', 'not_empty'],
     file: ['empty', 'not_empty'],
+    rating_star: ['equals', 'not_equals', 'greater_than', 'less_than', 'empty', 'not_empty'],
+    rating_number: ['equals', 'not_equals', 'greater_than', 'less_than', 'empty', 'not_empty'],
     info: [],
 };
 

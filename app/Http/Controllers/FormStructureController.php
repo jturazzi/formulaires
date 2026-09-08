@@ -60,7 +60,7 @@ class FormStructureController extends Controller
                 $section = null;
 
                 if (! empty($sectionData['id'])) {
-                    $section = $form->sections()->find($sectionData['id']);
+                    $section = $form->sections()->find((int) $sectionData['id']);
                 }
 
                 $sectionAttributes = [
@@ -79,7 +79,7 @@ class FormStructureController extends Controller
                     $field = null;
 
                     if (! empty($fieldData['id'])) {
-                        $field = $form->fields()->find($fieldData['id']);
+                        $field = $form->fields()->find((int) $fieldData['id']);
                     }
 
                     $fieldAttributes = [

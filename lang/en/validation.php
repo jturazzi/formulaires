@@ -179,8 +179,9 @@ return [
     */
 
     'custom' => [
-        'attribute-name' => [
-            'rule-name' => 'custom-message',
+        'answers.*' => [
+            'regex' => 'The phone number may only contain digits, spaces, and the characters + - ( ).',
+            'date_format' => 'The time must be in HH:MM format (e.g. 14:30).',
         ],
     ],
 

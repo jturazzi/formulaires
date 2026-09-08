@@ -137,6 +137,96 @@ test('date answers are validated against min and max date', function () {
     ])->assertSessionHasErrors("answers.{$field->id}");
 });
 
+test('a phone answer is accepted and free-form text is rejected', function () {
+    $form = publishedForm();
+    $field = FormField::factory()->for($form)->type('phone')->required()->create([
+        'form_section_id' => $form->sections->first()->id,
+    ]);
+
+    $this->post("/f/{$form->slug}", [
+        'consent' => true,
+        'answers' => [$field->id => '+33 6 12 34 56 78'],
+    ])->assertRedirect(route('public.forms.thanks', $form->slug));
+
+    expect(Response::first()->answers()->first()->value)->toBe('+33 6 12 34 56 78');
+
+    $this->withSession(['locale' => 'fr'])->post("/f/{$form->slug}", [
+        'consent' => true,
+        'answers' => [$field->id => 'not a phone number'],
+    ])->assertSessionHasErrors([
+        "answers.{$field->id}" => 'Le numéro de téléphone ne doit contenir que des chiffres, espaces et les caractères + - ( ).',
+    ]);
+});
+
+test('a time answer must be a valid HH:MM time', function () {
+    $form = publishedForm();
+    $field = FormField::factory()->for($form)->type('time')->required()->create([
+        'form_section_id' => $form->sections->first()->id,
+    ]);
+
+    $this->post("/f/{$form->slug}", [
+        'consent' => true,
+        'answers' => [$field->id => '14:30'],
+    ])->assertRedirect(route('public.forms.thanks', $form->slug));
+
+    expect(Response::first()->answers()->first()->value)->toBe('14:30');
+
+    $this->withSession(['locale' => 'fr'])->post("/f/{$form->slug}", [
+        'consent' => true,
+        'answers' => [$field->id => '25:99'],
+    ])->assertSessionHasErrors([
+        "answers.{$field->id}" => "L'heure doit être au format HH:MM (par exemple 14:30).",
+    ]);
+});
+
+test('a star rating answer must be between 1 and 5', function () {
+    $form = publishedForm();
+    $field = FormField::factory()->for($form)->type('rating_star')->required()->create([
+        'form_section_id' => $form->sections->first()->id,
+    ]);
+
+    $this->post("/f/{$form->slug}", [
+        'consent' => true,
+        'answers' => [$field->id => 4],
+    ])->assertRedirect(route('public.forms.thanks', $form->slug));
+
+    expect(Response::first()->answers()->first()->value)->toBe(4);
+
+    $this->post("/f/{$form->slug}", [
+        'consent' => true,
+        'answers' => [$field->id => 6],
+    ])->assertSessionHasErrors("answers.{$field->id}");
+});
+
+test('a 0-to-10 rating answer must be between 0 and 10', function () {
+    $form = publishedForm();
+    $field = FormField::factory()->for($form)->type('rating_number')->required()->create([
+        'form_section_id' => $form->sections->first()->id,
+    ]);
+
+    $this->post("/f/{$form->slug}", [
+        'consent' => true,
+        'answers' => [$field->id => 7],
+    ])->assertRedirect(route('public.forms.thanks', $form->slug));
+
+    expect(Response::first()->answers()->first()->value)->toBe(7);
+
+    $this->post("/f/{$form->slug}", [
+        'consent' => true,
+        'answers' => [$field->id => 0],
+    ])->assertRedirect(route('public.forms.thanks', $form->slug));
+
+    $this->post("/f/{$form->slug}", [
+        'consent' => true,
+        'answers' => [$field->id => 11],
+    ])->assertSessionHasErrors("answers.{$field->id}");
+
+    $this->post("/f/{$form->slug}", [
+        'consent' => true,
+        'answers' => [$field->id => -1],
+    ])->assertSessionHasErrors("answers.{$field->id}");
+});
+
 test('a required field hidden by its visibility condition is not enforced', function () {
     $form = publishedForm();
     $section = $form->sections->first();

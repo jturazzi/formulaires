@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { type FieldVisibility, type SharedData, type VisibilityCondition, type VisibilityOperator } from '@/types';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
-import { LoaderCircle, MailCheck } from '@lucide/vue';
+import { LoaderCircle, MailCheck, Star } from '@lucide/vue';
+import { trans } from 'laravel-vue-i18n';
 import { computed, reactive, ref } from 'vue';
 
 interface PublicField {
@@ -95,6 +96,66 @@ const isChecked = (fieldId: number, choice: string) => ((submission.answers[fiel
 // Accent-tinted highlight for a selected radio/checkbox row (accent is always a #rrggbb hex value).
 const selectedRowStyle = (selected: boolean) => (selected ? { borderColor: accent.value, backgroundColor: `${accent.value}0d` } : {});
 
+// A short note on the expected format/range, shown under the question so
+// respondents know what's valid before they hit a validation error.
+const fieldHint = (field: PublicField): string | null => {
+    const options = field.options;
+
+    if (field.type === 'number') {
+        const { min, max } = options ?? {};
+
+        if (min !== undefined && max !== undefined) {
+            return trans('Enter a number between :min and :max.', { min: String(min), max: String(max) });
+        }
+        if (min !== undefined) {
+            return trans('Enter a number greater than or equal to :min.', { min: String(min) });
+        }
+        if (max !== undefined) {
+            return trans('Enter a number less than or equal to :max.', { max: String(max) });
+        }
+
+        return null;
+    }
+
+    if (field.type === 'date') {
+        const { min_date: minDate, max_date: maxDate } = options ?? {};
+
+        if (minDate && maxDate) {
+            return trans('Choose a date between :min and :max.', { min: minDate, max: maxDate });
+        }
+        if (minDate) {
+            return trans('Choose a date on or after :min.', { min: minDate });
+        }
+        if (maxDate) {
+            return trans('Choose a date on or before :max.', { max: maxDate });
+        }
+
+        return null;
+    }
+
+    if (field.type === 'phone') {
+        return trans('Digits, spaces, and + - ( ) only.');
+    }
+
+    if (field.type === 'time') {
+        return trans('24-hour format (HH:MM).');
+    }
+
+    return null;
+};
+
+/* Ratings ---------------------------------------------------------------- */
+
+// null (not undefined/0) for "not answered yet" — 0 is itself a valid rating.
+const ratingValue = (fieldId: number): number | null => {
+    const raw = submission.answers[fieldId];
+    return raw === undefined || raw === null || raw === '' ? null : Number(raw);
+};
+const ratingEquals = (fieldId: number, n: number) => ratingValue(fieldId) === n;
+const ratingAtLeast = (fieldId: number, n: number) => (ratingValue(fieldId) ?? -1) >= n;
+const setRating = (fieldId: number, value: number) => (submission.answers[fieldId] = String(value));
+const numberRatingScale = Array.from({ length: 11 }, (_, n) => n);
+
 /* "Other" free-text answers -------------------------------------------- */
 
 const OTHER_VALUE = '__other__';
@@ -158,13 +219,17 @@ const isEmptyValue = (value: unknown) => value === null || value === undefined |
 
 const stringifyValue = (value: unknown) => (Array.isArray(value) ? value.join(', ') : String(value ?? ''));
 
+// A bare "HH:MM" (from a time field) isn't reliably parsed by Date.parse on
+// its own — anchor it to a fixed date first.
+const toTimestamp = (value: string): number => (/^\d{2}:\d{2}(:\d{2})?$/.test(value) ? Date.parse(`1970-01-01T${value}`) : Date.parse(value));
+
 const compareOrdered = (value: unknown, target: string): number => {
     if (typeof value !== 'object' && value !== '' && !Number.isNaN(Number(value)) && !Number.isNaN(Number(target))) {
         return Number(value) - Number(target);
     }
 
-    const a = Date.parse(String(value ?? ''));
-    const b = Date.parse(target);
+    const a = toTimestamp(String(value ?? ''));
+    const b = toTimestamp(target);
 
     return Number.isNaN(a) || Number.isNaN(b) ? 0 : a - b;
 };
@@ -337,6 +402,7 @@ const submit = () => {
                                         <span v-if="field.required" class="text-red-600" aria-hidden="true">*</span>
                                     </Label>
                                     <p v-if="field.description" class="text-muted-foreground text-sm">{{ field.description }}</p>
+                                    <p v-if="fieldHint(field)" class="text-muted-foreground text-xs">{{ fieldHint(field) }}</p>
 
                                     <Input
                                         v-if="field.type === 'text'"
@@ -368,6 +434,18 @@ const submit = () => {
                                     />
 
                                     <Input
+                                        v-else-if="field.type === 'phone'"
+                                        :id="`field-${field.id}`"
+                                        v-model="submission.answers[field.id] as string"
+                                        type="tel"
+                                        inputmode="tel"
+                                        pattern="[0-9+\-\s()]+"
+                                        maxlength="30"
+                                        :required="field.required"
+                                        :class="errorClass(field.id)"
+                                    />
+
+                                    <Input
                                         v-else-if="field.type === 'number'"
                                         :id="`field-${field.id}`"
                                         v-model="submission.answers[field.id] as string"
@@ -388,6 +466,61 @@ const submit = () => {
                                         :required="field.required"
                                         :class="errorClass(field.id)"
                                     />
+
+                                    <Input
+                                        v-else-if="field.type === 'time'"
+                                        :id="`field-${field.id}`"
+                                        v-model="submission.answers[field.id] as string"
+                                        type="time"
+                                        :required="field.required"
+                                        :class="errorClass(field.id)"
+                                    />
+
+                                    <div v-else-if="field.type === 'rating_star'" class="flex items-center gap-1">
+                                        <label
+                                            v-for="star in 5"
+                                            :key="star"
+                                            class="cursor-pointer rounded p-1"
+                                            :class="errorClass(field.id)"
+                                            :aria-label="`${star} / 5`"
+                                        >
+                                            <input
+                                                type="radio"
+                                                :name="`field-${field.id}`"
+                                                :value="String(star)"
+                                                :checked="ratingEquals(field.id, star)"
+                                                :required="field.required"
+                                                class="sr-only"
+                                                @change="setRating(field.id, star)"
+                                            />
+                                            <Star
+                                                class="h-7 w-7 transition-colors"
+                                                :class="ratingAtLeast(field.id, star) ? '' : 'text-muted-foreground/30'"
+                                                :style="ratingAtLeast(field.id, star) ? { color: accent, fill: accent } : {}"
+                                            />
+                                        </label>
+                                    </div>
+
+                                    <div v-else-if="field.type === 'rating_number'" class="flex flex-wrap items-center gap-2">
+                                        <label
+                                            v-for="n in numberRatingScale"
+                                            :key="n"
+                                            class="hover:bg-muted/50 flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border text-sm font-medium transition-colors"
+                                            :class="errorClass(field.id)"
+                                            :style="selectedRowStyle(ratingEquals(field.id, n))"
+                                        >
+                                            <input
+                                                type="radio"
+                                                :name="`field-${field.id}`"
+                                                :value="String(n)"
+                                                :checked="ratingEquals(field.id, n)"
+                                                :required="field.required"
+                                                class="sr-only"
+                                                @change="setRating(field.id, n)"
+                                            />
+                                            {{ n }}
+                                        </label>
+                                    </div>
 
                                     <div v-else-if="field.type === 'choice'" class="grid gap-2">
                                         <label

@@ -13,11 +13,15 @@ import {
     CheckSquare,
     ChevronDown,
     CircleDot,
+    Clock,
     FileUp,
+    Gauge,
     GripVertical,
     Hash,
     Mail,
+    Phone,
     Plus,
+    Star,
     TextCursorInput,
     Trash2,
     Type,
@@ -63,29 +67,39 @@ const typeLabels: Record<FieldType, string> = {
     text: 'Short text',
     textarea: 'Long text',
     email: 'Email',
+    phone: 'Phone number',
     number: 'Number',
     date: 'Date',
+    time: 'Time',
     choice: 'Single choice',
     checkboxes: 'Multiple choice',
     dropdown: 'Dropdown',
     file: 'File upload',
+    rating_star: 'Star rating',
+    rating_number: 'Rating (0 to 10)',
     info: 'Text block',
 };
 
 // A color per family of field types, so a long form is easy to scan at a glance.
 const BLUE = 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300';
 const VIOLET = 'bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-300';
+const ROSE = 'bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-300';
+const AMBER = 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300';
 
 const typeMeta: Record<FieldType, { icon: typeof Type; color: string }> = {
     text: { icon: TextCursorInput, color: BLUE },
     textarea: { icon: AlignLeft, color: BLUE },
     email: { icon: Mail, color: BLUE },
+    phone: { icon: Phone, color: BLUE },
     number: { icon: Hash, color: BLUE },
-    date: { icon: Calendar, color: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300' },
+    date: { icon: Calendar, color: AMBER },
+    time: { icon: Clock, color: AMBER },
     choice: { icon: CircleDot, color: VIOLET },
     checkboxes: { icon: CheckSquare, color: VIOLET },
     dropdown: { icon: ChevronDown, color: VIOLET },
     file: { icon: FileUp, color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300' },
+    rating_star: { icon: Star, color: ROSE },
+    rating_number: { icon: Gauge, color: ROSE },
     info: { icon: Type, color: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' },
 };
 
@@ -297,6 +311,11 @@ const removeChoice = (index: number) => {
                 <p v-if="field.type === 'file'" class="text-muted-foreground text-xs">
                     {{ $t('Respondents can upload one file (max :size MB).', { size: String(Math.round(maxUploadKb / 1024)) }) }}
                 </p>
+
+                <p v-if="field.type === 'rating_star'" class="text-muted-foreground text-xs">
+                    {{ $t('Respondents pick a rating from 1 to 5 stars.') }}
+                </p>
+                <p v-if="field.type === 'rating_number'" class="text-muted-foreground text-xs">{{ $t('Respondents pick a rating from 0 to 10.') }}</p>
 
                 <VisibilityEditor :field="field" :conditionable-fields="conditionableFields" :errors="visibilityErrors" />
 
