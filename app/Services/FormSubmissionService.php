@@ -75,7 +75,7 @@ class FormSubmissionService
                     ? [$required, 'string', 'max:500']
                     : [$required, 'string', Rule::in($choices)],
                 'checkboxes' => [$required, 'array', ...($field->required ? ['min:1'] : [])],
-                'rating_star' => [$required, 'integer', 'between:1,5'],
+                'rating_star' => [$required, 'integer', 'between:1,6'],
                 'rating_number' => [$required, 'integer', 'between:0,10'],
                 'file' => [
                     $required,

@@ -478,11 +478,11 @@ const submit = () => {
 
                                     <div v-else-if="field.type === 'rating_star'" class="flex items-center gap-1">
                                         <label
-                                            v-for="star in 5"
+                                            v-for="star in 6"
                                             :key="star"
                                             class="cursor-pointer rounded p-1"
                                             :class="errorClass(field.id)"
-                                            :aria-label="`${star} / 5`"
+                                            :aria-label="`${star} / 6`"
                                         >
                                             <input
                                                 type="radio"

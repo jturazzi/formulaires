@@ -313,7 +313,7 @@ const removeChoice = (index: number) => {
                 </p>
 
                 <p v-if="field.type === 'rating_star'" class="text-muted-foreground text-xs">
-                    {{ $t('Respondents pick a rating from 1 to 5 stars.') }}
+                    {{ $t('Respondents pick a rating from 1 to 6 stars.') }}
                 </p>
                 <p v-if="field.type === 'rating_number'" class="text-muted-foreground text-xs">{{ $t('Respondents pick a rating from 0 to 10.') }}</p>
 

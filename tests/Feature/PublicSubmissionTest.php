@@ -179,7 +179,7 @@ test('a time answer must be a valid HH:MM time', function () {
     ]);
 });
 
-test('a star rating answer must be between 1 and 5', function () {
+test('a star rating answer must be between 1 and 6', function () {
     $form = publishedForm();
     $field = FormField::factory()->for($form)->type('rating_star')->required()->create([
         'form_section_id' => $form->sections->first()->id,
@@ -187,14 +187,14 @@ test('a star rating answer must be between 1 and 5', function () {
 
     $this->post("/f/{$form->slug}", [
         'consent' => true,
-        'answers' => [$field->id => 4],
+        'answers' => [$field->id => 6],
     ])->assertRedirect(route('public.forms.thanks', $form->slug));
 
-    expect(Response::first()->answers()->first()->value)->toBe(4);
+    expect(Response::first()->answers()->first()->value)->toBe(6);
 
     $this->post("/f/{$form->slug}", [
         'consent' => true,
-        'answers' => [$field->id => 6],
+        'answers' => [$field->id => 7],
     ])->assertSessionHasErrors("answers.{$field->id}");
 });
 
