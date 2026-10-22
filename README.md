@@ -85,7 +85,7 @@ Respondent verification codes and owner notifications are sent by email. Configu
 
 ### Error tracking (optional)
 
-The app ships with [Sentry](https://sentry.io) support, disabled unless configured. Set `SENTRY_LARAVEL_DSN` (backend) and `VITE_SENTRY_DSN` (frontend, rebuild assets after setting it) in `.env` to enable it. Leave both empty to keep it off.
+The app ships with [Sentry](https://sentry.io) support, disabled unless configured. Set `SENTRY_LARAVEL_DSN` in `.env` (or the container environment) to enable it: the same DSN reports backend errors, failed queued jobs and browser errors, with no asset rebuild. Leave it empty to keep it off.
 
 ## GDPR notes
 

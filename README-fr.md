@@ -85,7 +85,7 @@ Les codes de vérification des répondants et les notifications sont envoyés pa
 
 ### Suivi des erreurs (optionnel)
 
-L'application intègre [Sentry](https://sentry.io), désactivé tant qu'il n'est pas configuré. Renseignez `SENTRY_LARAVEL_DSN` (backend) et `VITE_SENTRY_DSN` (frontend, recompilez les assets après l'avoir renseigné) dans `.env` pour l'activer. Laissez les deux vides pour le garder désactivé.
+L'application intègre [Sentry](https://sentry.io), désactivé tant qu'il n'est pas configuré. Renseignez `SENTRY_LARAVEL_DSN` dans `.env` (ou l'environnement du conteneur) pour l'activer : le même DSN remonte les erreurs backend, les jobs en échec et les erreurs du navigateur, sans recompiler les assets. Laissez-le vide pour le garder désactivé.
 
 ## Notes RGPD
 

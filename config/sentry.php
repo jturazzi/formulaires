@@ -10,6 +10,12 @@ return [
     // @see https://docs.sentry.io/concepts/key-terms/dsn-explainer/
     'dsn' => env('SENTRY_LARAVEL_DSN', env('SENTRY_DSN')),
 
+    // DSN du navigateur, injecté dans la page au runtime : par défaut le même projet que le backend
+    'js_dsn' => env('SENTRY_JS_DSN', env('SENTRY_LARAVEL_DSN', env('SENTRY_DSN'))),
+
+    // Jobs en queue : seul l'échec définitif est remonté (voir App\Support\SentryQueueReporting)
+    'before_send' => [App\Support\SentryQueueReporting::class, 'beforeSend'],
+
     // @see https://spotlightjs.com/
     // 'spotlight' => env('SENTRY_SPOTLIGHT', false),
 
@@ -18,7 +24,7 @@ return [
 
     // The release version of your application
     // Example with dynamic git hash: trim(exec('git --git-dir ' . base_path('.git') . ' log --pretty="%h" -n1 HEAD'))
-    'release' => env('SENTRY_RELEASE'),
+    'release' => env('SENTRY_RELEASE', config('app.version')),
 
     // When left empty or `null` the Laravel environment will be used (usually discovered from `APP_ENV` in your `.env`)
     'environment' => env('SENTRY_ENVIRONMENT'),
