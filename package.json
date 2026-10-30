@@ -54,5 +54,8 @@
         "@rollup/rollup-linux-x64-gnu": "4.65.0",
         "@tailwindcss/oxide-linux-x64-gnu": "^4.0.1",
         "lightningcss-linux-x64-gnu": "^1.29.1"
+    },
+    "allowScripts": {
+        "vue-demi@0.14.10": true
     }
 }
