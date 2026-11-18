@@ -273,5 +273,14 @@
     ":count file(s) received": ":count fichier(s) reçu(s)",
     "“Other” answers": "Réponses « Autre »",
     "Latest answers": "Dernières réponses",
-    "See all :count answers": "Voir les :count réponses"
+    "See all :count answers": "Voir les :count réponses",
+    "Section :number of :total": "Section :number sur :total",
+    ":count question(s)": ":count question(s)",
+    "Bars": "Barres",
+    "Pie chart": "Camembert",
+    "Form header": "En-tête du formulaire",
+    "Link & appearance": "Lien et apparence",
+    "Access": "Accès",
+    "Notifications": "Notifications",
+    "After submission & GDPR": "Après l’envoi et RGPD"
 }

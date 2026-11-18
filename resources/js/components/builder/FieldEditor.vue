@@ -33,6 +33,8 @@ import VisibilityEditor from './VisibilityEditor.vue';
 const props = withDefaults(
     defineProps<{
         field: FormFieldData;
+        /** Position label shown on the card, e.g. "2.3" (section 2, question 3). */
+        number: string;
         maxUploadKb: number;
         conditionableFields: (FormFieldData & { id: number })[];
         fieldErrors?: Record<string, string>;
@@ -175,8 +177,12 @@ const removeChoice = (index: number) => {
 
 <template>
     <div
-        class="group focus-within:bg-muted/50 rounded-lg p-4 transition-colors"
-        :class="hasAnyError ? 'ring-1 ring-red-300 dark:ring-red-900' : 'bg-muted/30 hover:bg-muted/50'"
+        class="group bg-background rounded-lg border p-4 shadow-sm transition-colors"
+        :class="
+            hasAnyError
+                ? 'border-red-300 ring-1 ring-red-300 dark:border-red-900 dark:ring-red-900'
+                : 'hover:border-primary/40 focus-within:border-primary/60'
+        "
     >
         <div class="flex items-start gap-3">
             <button
@@ -189,13 +195,16 @@ const removeChoice = (index: number) => {
 
             <div class="grid flex-1 gap-3">
                 <div class="flex items-center justify-between gap-2">
-                    <span
-                        class="inline-flex items-center gap-1.5 rounded-full py-0.5 pr-2.5 pl-1.5 text-xs font-medium"
-                        :class="typeMeta[field.type].color"
-                    >
-                        <component :is="typeMeta[field.type].icon" class="h-3.5 w-3.5" />
-                        {{ $t(typeLabels[field.type]) }}
-                    </span>
+                    <div class="flex items-center gap-2">
+                        <span class="text-muted-foreground text-xs font-semibold tabular-nums">{{ number }}</span>
+                        <span
+                            class="inline-flex items-center gap-1.5 rounded-full py-0.5 pr-2.5 pl-1.5 text-xs font-medium"
+                            :class="typeMeta[field.type].color"
+                        >
+                            <component :is="typeMeta[field.type].icon" class="h-3.5 w-3.5" />
+                            {{ $t(typeLabels[field.type]) }}
+                        </span>
+                    </div>
                     <Button
                         variant="ghost"
                         size="icon"

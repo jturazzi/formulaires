@@ -23,25 +23,31 @@ import { Head, router, useForm } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 import {
     AlignLeft,
+    Bell,
     Calendar,
     CheckSquare,
     ChevronDown,
     CircleDot,
+    ClipboardCheck,
     Clock,
-    EyeOff,
     ExternalLink,
+    EyeOff,
+    FileText,
     FileUp,
     Gauge,
+    GripVertical,
     Hash,
     ImageIcon,
     Inbox,
     LinkIcon,
     ListPlus,
     Mail,
+    Palette,
     Phone,
     Plus,
     Save,
     Settings2,
+    ShieldCheck,
     Star,
     TextCursorInput,
     Trash2,
@@ -311,6 +317,9 @@ const settingsForm = useForm({
     success_message: props.form.success_message ?? '',
 });
 
+// Quick picks for the theme color; any other color stays available via the picker.
+const THEME_PRESETS = ['#2563eb', '#0891b2', '#059669', '#65a30d', '#d97706', '#dc2626', '#db2777', '#7c3aed', '#334155'];
+
 const addNotificationEmail = () => settingsForm.notification_emails.push('');
 const removeNotificationEmail = (index: number) => settingsForm.notification_emails.splice(index, 1);
 
@@ -531,9 +540,15 @@ const statusLabel = computed(() => {
 
             <p v-if="structureError" class="text-sm text-red-600">{{ structureError }}</p>
 
-            <!-- Header card: logo + title + description -->
-            <Card class="border-border/70 shadow-none">
-                <CardContent class="flex flex-col gap-4 pt-6">
+            <!-- Header card: logo + title + description. Topped with the form's theme
+                 color so it reads as the form's cover, distinct from the sections. -->
+            <Card class="overflow-hidden border-t-8 shadow-sm" :style="{ borderTopColor: form.primary_color || 'hsl(var(--primary))' }">
+                <CardContent class="flex flex-col gap-4 pt-5">
+                    <p class="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase">
+                        <FileText class="h-3.5 w-3.5" />
+                        {{ $t('Form header') }}
+                    </p>
+
                     <div class="flex items-center gap-4">
                         <div class="bg-muted/40 flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border">
                             <img v-if="form.logo_url" :src="form.logo_url" alt="Logo" class="h-full w-full object-contain" />
@@ -554,20 +569,28 @@ const statusLabel = computed(() => {
                         </div>
                     </div>
 
-                    <div class="grid gap-2">
-                        <Label for="form-title">{{ $t('Title') }}</Label>
-                        <Input id="form-title" v-model="settingsForm.title" class="text-lg font-semibold" @change="saveSettings" />
+                    <div class="grid gap-1">
+                        <Label for="form-title" class="sr-only">{{ $t('Title') }}</Label>
+                        <Input
+                            id="form-title"
+                            v-model="settingsForm.title"
+                            class="hover:border-input focus-visible:border-input h-auto border-transparent px-2 py-1 text-2xl font-bold shadow-none md:text-2xl"
+                            :class="settingsForm.errors.title ? 'border-red-500' : ''"
+                            :placeholder="$t('Title')"
+                            @change="saveSettings"
+                        />
                         <InputError :message="settingsForm.errors.title" />
                     </div>
 
-                    <div class="grid gap-2">
-                        <Label for="form-description">{{ $t('Description (optional)') }}</Label>
+                    <div class="grid gap-1">
+                        <Label for="form-description" class="sr-only">{{ $t('Description (optional)') }}</Label>
                         <textarea
                             id="form-description"
                             v-model="settingsForm.description"
                             rows="2"
-                            class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-                            :placeholder="$t('Shown at the top of the public form')"
+                            class="ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring hover:border-input focus-visible:border-input text-muted-foreground flex w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                            :class="settingsForm.errors.description ? 'border-red-500' : ''"
+                            :placeholder="$t('Description (optional)') + ' — ' + $t('Shown at the top of the public form')"
                             @change="saveSettings"
                         ></textarea>
                         <InputError :message="settingsForm.errors.description" />
@@ -578,31 +601,25 @@ const statusLabel = computed(() => {
             <!-- Sections -->
             <draggable :list="sections" item-key="id" handle=".section-drag-handle" class="flex flex-col gap-6" @end="markDirty">
                 <template #item="{ element: section, index: sectionIndex }">
-                    <Card class="border-border/70 shadow-none">
-                        <CardHeader class="flex flex-row items-start gap-3 space-y-0">
-                            <span
-                                class="bg-primary/10 text-primary mt-1.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
-                            >
-                                {{ sectionIndex + 1 }}
-                            </span>
+                    <Card class="border-l-primary overflow-hidden border-l-4 shadow-sm">
+                        <CardHeader class="bg-primary/5 flex flex-row items-start gap-3 space-y-0 border-b py-4">
                             <button
                                 type="button"
-                                class="section-drag-handle text-muted-foreground hover:text-foreground mt-2.5 cursor-grab"
+                                class="section-drag-handle text-muted-foreground hover:text-foreground mt-1 cursor-grab"
                                 :aria-label="$t('Reorder')"
                             >
-                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <circle cx="9" cy="6" r="1" />
-                                    <circle cx="15" cy="6" r="1" />
-                                    <circle cx="9" cy="12" r="1" />
-                                    <circle cx="15" cy="12" r="1" />
-                                    <circle cx="9" cy="18" r="1" />
-                                    <circle cx="15" cy="18" r="1" />
-                                </svg>
+                                <GripVertical class="h-4 w-4" />
                             </button>
-                            <div class="grid flex-1 gap-2">
+                            <div class="grid flex-1 gap-1">
+                                <p class="text-primary text-xs font-semibold tracking-wide uppercase">
+                                    {{ $t('Section :number of :total', { number: String(sectionIndex + 1), total: String(sections.length) }) }}
+                                    <span class="text-muted-foreground font-normal normal-case">
+                                        · {{ $t(':count question(s)', { count: String(section.fields.length) }) }}
+                                    </span>
+                                </p>
                                 <Input
                                     v-model="section.title"
-                                    class="border-0 px-0 text-base font-semibold shadow-none focus-visible:ring-0"
+                                    class="h-auto border-0 bg-transparent px-0 py-0.5 text-lg font-semibold shadow-none focus-visible:ring-0 md:text-lg"
                                     :class="sectionErrors(sectionIndex).title ? 'ring-1 ring-red-500' : ''"
                                     :placeholder="$t('Section title (optional)')"
                                     @input="markDirty"
@@ -610,7 +627,7 @@ const statusLabel = computed(() => {
                                 <InputError :message="sectionErrors(sectionIndex).title" />
                                 <Input
                                     v-model="section.description"
-                                    class="h-8 border-0 px-0 text-sm shadow-none focus-visible:ring-0"
+                                    class="h-8 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
                                     :class="sectionErrors(sectionIndex).description ? 'ring-1 ring-red-500' : ''"
                                     :placeholder="$t('Section description (optional)')"
                                     @input="markDirty"
@@ -633,7 +650,7 @@ const statusLabel = computed(() => {
                                 {{ $t('Remove section') }}
                             </Button>
                         </CardHeader>
-                        <CardContent class="flex flex-col gap-3">
+                        <CardContent class="bg-muted/30 flex flex-col gap-3 py-4">
                             <draggable
                                 :list="section.fields"
                                 item-key="id"
@@ -645,6 +662,7 @@ const statusLabel = computed(() => {
                                 <template #item="{ element: field, index: fieldIndex }">
                                     <FieldEditor
                                         :field="field"
+                                        :number="`${sectionIndex + 1}.${fieldIndex + 1}`"
                                         :max-upload-kb="maxUploadKb"
                                         :conditionable-fields="conditionableFields"
                                         :field-errors="fieldErrorsFor(sectionIndex, fieldIndex)"
@@ -690,142 +708,198 @@ const statusLabel = computed(() => {
             </Button>
         </div>
 
-        <!-- Settings dialog -->
+        <!-- Settings dialog: fixed header/footer, scrollable body grouped by topic -->
         <Dialog :open="settingsOpen" @update:open="(open: boolean) => (open ? (settingsOpen = true) : closeSettings())">
-            <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-                <DialogHeader>
+            <DialogContent class="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+                <DialogHeader class="border-b px-6 pt-6 pb-4">
                     <DialogTitle>{{ $t('Form settings') }}</DialogTitle>
                     <DialogDescription>{{ $t('Access rules, notifications and GDPR retention.') }}</DialogDescription>
                 </DialogHeader>
 
-                <div class="grid gap-5 py-2">
-                    <div class="grid gap-2">
-                        <Label for="form-slug">{{ $t('Public link') }}</Label>
-                        <div
-                            class="border-input bg-background focus-within:ring-ring flex items-center rounded-md border px-3 py-2 text-sm focus-within:ring-2"
-                        >
-                            <span class="text-muted-foreground whitespace-nowrap">{{ publicBaseUrl }}</span>
-                            <input
-                                id="form-slug"
-                                v-model="settingsForm.slug"
-                                class="min-w-0 flex-1 bg-transparent outline-none"
-                                pattern="[a-z0-9]+(-[a-z0-9]+)*"
-                                maxlength="32"
-                            />
-                        </div>
-                        <p class="text-muted-foreground text-xs">
-                            {{ $t('Lowercase letters, numbers and hyphens only. Changing this breaks previously shared links.') }}
-                        </p>
-                        <InputError :message="settingsForm.errors.slug" />
-                    </div>
+                <div class="grid min-w-0 gap-4 overflow-y-auto px-6 py-5">
+                    <!-- Link & appearance -->
+                    <section class="grid min-w-0 gap-4 rounded-lg border p-4">
+                        <h3 class="flex items-center gap-2 text-sm font-semibold">
+                            <Palette class="text-muted-foreground h-4 w-4" />
+                            {{ $t('Link & appearance') }}
+                        </h3>
 
-                    <div class="grid gap-2">
-                        <Label>{{ $t('Theme color') }}</Label>
-                        <div class="flex items-center gap-3">
-                            <input
-                                v-model="settingsForm.primary_color"
-                                type="color"
-                                class="bg-background h-9 w-14 cursor-pointer rounded border p-1"
-                            />
-                            <span class="text-muted-foreground text-sm">{{ settingsForm.primary_color }}</span>
-                        </div>
-                        <InputError :message="settingsForm.errors.primary_color" />
-                    </div>
-
-                    <div class="flex items-start gap-2">
-                        <Checkbox id="require-email" v-model:checked="settingsForm.require_email_verification" class="mt-0.5" />
-                        <div class="grid gap-1">
-                            <Label for="require-email" class="font-normal">{{ $t('Require email verification') }}</Label>
+                        <div class="grid min-w-0 gap-2">
+                            <Label for="form-slug">{{ $t('Public link') }}</Label>
+                            <div
+                                class="border-input bg-background focus-within:ring-ring flex min-w-0 items-center overflow-hidden rounded-md border text-sm focus-within:ring-2"
+                            >
+                                <span
+                                    class="bg-muted/50 text-muted-foreground max-w-[60%] shrink truncate border-r px-3 py-2"
+                                    :title="publicBaseUrl"
+                                    dir="rtl"
+                                >
+                                    <bdi>{{ publicBaseUrl }}</bdi>
+                                </span>
+                                <input
+                                    id="form-slug"
+                                    v-model="settingsForm.slug"
+                                    class="min-w-0 flex-1 bg-transparent px-3 py-2 outline-none"
+                                    pattern="[a-z0-9]+(-[a-z0-9]+)*"
+                                    maxlength="32"
+                                />
+                            </div>
                             <p class="text-muted-foreground text-xs">
-                                {{ $t('Respondents must confirm their email address with a code before submitting.') }}
+                                {{ $t('Lowercase letters, numbers and hyphens only. Changing this breaks previously shared links.') }}
                             </p>
+                            <InputError :message="settingsForm.errors.slug" />
                         </div>
-                    </div>
 
-                    <div class="flex items-start gap-2">
-                        <Checkbox id="notify" v-model:checked="settingsForm.notify_on_response" class="mt-0.5" />
-                        <div class="grid gap-1">
+                        <div class="grid gap-2">
+                            <Label for="theme-color">{{ $t('Theme color') }}</Label>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <button
+                                    v-for="color in THEME_PRESETS"
+                                    :key="color"
+                                    type="button"
+                                    class="h-7 w-7 rounded-full border-2 transition-transform hover:scale-110"
+                                    :class="settingsForm.primary_color.toLowerCase() === color ? 'border-foreground' : 'border-transparent'"
+                                    :style="{ backgroundColor: color }"
+                                    :aria-label="color"
+                                    :aria-pressed="settingsForm.primary_color.toLowerCase() === color"
+                                    @click="settingsForm.primary_color = color"
+                                />
+                                <label class="hover:bg-muted ml-1 flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1 text-sm">
+                                    <input
+                                        id="theme-color"
+                                        v-model="settingsForm.primary_color"
+                                        type="color"
+                                        class="h-5 w-5 cursor-pointer rounded border-0 bg-transparent p-0"
+                                    />
+                                    <span class="text-muted-foreground font-mono text-xs">{{ settingsForm.primary_color }}</span>
+                                </label>
+                            </div>
+                            <InputError :message="settingsForm.errors.primary_color" />
+                        </div>
+                    </section>
+
+                    <!-- Access -->
+                    <section class="grid gap-4 rounded-lg border p-4">
+                        <h3 class="flex items-center gap-2 text-sm font-semibold">
+                            <ShieldCheck class="text-muted-foreground h-4 w-4" />
+                            {{ $t('Access') }}
+                        </h3>
+
+                        <div class="flex items-start gap-2">
+                            <Checkbox id="require-email" v-model:checked="settingsForm.require_email_verification" class="mt-0.5" />
+                            <div class="grid gap-1">
+                                <Label for="require-email" class="font-normal">{{ $t('Require email verification') }}</Label>
+                                <p class="text-muted-foreground text-xs">
+                                    {{ $t('Respondents must confirm their email address with a code before submitting.') }}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div class="grid gap-2">
+                                <Label for="max-responses">{{ $t('Response limit') }}</Label>
+                                <Input
+                                    id="max-responses"
+                                    v-model.number="settingsForm.max_responses"
+                                    type="number"
+                                    min="1"
+                                    :placeholder="$t('Unlimited')"
+                                />
+                                <InputError :message="settingsForm.errors.max_responses" />
+                            </div>
+                            <div class="grid gap-2">
+                                <Label for="expires-at">{{ $t('Closes on') }}</Label>
+                                <Input id="expires-at" v-model="settingsForm.expires_at" type="datetime-local" />
+                                <InputError :message="settingsForm.errors.expires_at" />
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Notifications -->
+                    <section class="grid gap-4 rounded-lg border p-4">
+                        <h3 class="flex items-center gap-2 text-sm font-semibold">
+                            <Bell class="text-muted-foreground h-4 w-4" />
+                            {{ $t('Notifications') }}
+                        </h3>
+
+                        <div class="flex items-start gap-2">
+                            <Checkbox id="notify" v-model:checked="settingsForm.notify_on_response" class="mt-0.5" />
                             <Label for="notify" class="font-normal">{{ $t('Email me on new response') }}</Label>
                         </div>
-                    </div>
 
-                    <div v-if="settingsForm.notify_on_response" class="grid gap-2 pl-6">
-                        <Label>{{ $t('Notification recipients') }}</Label>
-                        <div v-for="(email, index) in settingsForm.notification_emails" :key="index" class="flex items-center gap-2">
-                            <Input v-model="settingsForm.notification_emails[index]" type="email" class="h-9" :placeholder="$t('your@email.com')" />
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                class="text-muted-foreground h-8 w-8 shrink-0"
-                                :aria-label="$t('Remove')"
-                                @click="removeNotificationEmail(index)"
-                            >
-                                <Trash2 class="h-4 w-4" />
+                        <div v-if="settingsForm.notify_on_response" class="grid gap-2 border-l-2 pl-4">
+                            <Label>{{ $t('Notification recipients') }}</Label>
+                            <div v-for="(email, index) in settingsForm.notification_emails" :key="index" class="flex items-center gap-2">
+                                <Input
+                                    v-model="settingsForm.notification_emails[index]"
+                                    type="email"
+                                    class="h-9"
+                                    :placeholder="$t('your@email.com')"
+                                />
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    class="text-muted-foreground h-8 w-8 shrink-0"
+                                    :aria-label="$t('Remove')"
+                                    @click="removeNotificationEmail(index)"
+                                >
+                                    <Trash2 class="h-4 w-4" />
+                                </Button>
+                            </div>
+                            <Button variant="outline" size="sm" class="w-fit" @click="addNotificationEmail">
+                                <Plus class="mr-1 h-4 w-4" />
+                                {{ $t('Add recipient') }}
                             </Button>
+                            <p class="text-muted-foreground text-xs">
+                                {{ $t('Add at least one recipient, otherwise no notification will be sent.') }}
+                            </p>
+                            <InputError :message="settingsForm.errors.notification_emails" />
                         </div>
-                        <Button variant="outline" size="sm" class="w-fit" @click="addNotificationEmail">
-                            <Plus class="mr-1 h-4 w-4" />
-                            {{ $t('Add recipient') }}
-                        </Button>
-                        <p class="text-muted-foreground text-xs">
-                            {{ $t('Add at least one recipient, otherwise no notification will be sent.') }}
-                        </p>
-                        <InputError :message="settingsForm.errors.notification_emails" />
-                    </div>
+                    </section>
 
-                    <div class="grid grid-cols-2 gap-4">
+                    <!-- After submission & GDPR -->
+                    <section class="grid gap-4 rounded-lg border p-4">
+                        <h3 class="flex items-center gap-2 text-sm font-semibold">
+                            <ClipboardCheck class="text-muted-foreground h-4 w-4" />
+                            {{ $t('After submission & GDPR') }}
+                        </h3>
+
                         <div class="grid gap-2">
-                            <Label for="max-responses">{{ $t('Response limit') }}</Label>
+                            <Label for="success-message">{{ $t('Thank you message') }}</Label>
+                            <textarea
+                                id="success-message"
+                                v-model="settingsForm.success_message"
+                                rows="2"
+                                class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                                :placeholder="$t('Shown after a response is submitted')"
+                            ></textarea>
+                            <InputError :message="settingsForm.errors.success_message" />
+                        </div>
+
+                        <div class="grid gap-2">
+                            <Label for="retention">{{ $t('Retention period (days)') }}</Label>
                             <Input
-                                id="max-responses"
-                                v-model.number="settingsForm.max_responses"
+                                id="retention"
+                                v-model.number="settingsForm.retention_days"
                                 type="number"
                                 min="1"
-                                :placeholder="$t('Unlimited')"
+                                max="3650"
+                                class="sm:w-48"
+                                :placeholder="String(defaultRetentionDays)"
                             />
-                            <InputError :message="settingsForm.errors.max_responses" />
+                            <p class="text-muted-foreground text-xs">
+                                {{
+                                    $t('Responses and files are automatically deleted after this period (GDPR). Empty = default (:days days).', {
+                                        days: String(defaultRetentionDays),
+                                    })
+                                }}
+                            </p>
+                            <InputError :message="settingsForm.errors.retention_days" />
                         </div>
-                        <div class="grid gap-2">
-                            <Label for="expires-at">{{ $t('Closes on') }}</Label>
-                            <Input id="expires-at" v-model="settingsForm.expires_at" type="datetime-local" />
-                            <InputError :message="settingsForm.errors.expires_at" />
-                        </div>
-                    </div>
-
-                    <div class="grid gap-2">
-                        <Label for="retention">{{ $t('Retention period (days)') }}</Label>
-                        <Input
-                            id="retention"
-                            v-model.number="settingsForm.retention_days"
-                            type="number"
-                            min="1"
-                            max="3650"
-                            :placeholder="String(defaultRetentionDays)"
-                        />
-                        <p class="text-muted-foreground text-xs">
-                            {{
-                                $t('Responses and files are automatically deleted after this period (GDPR). Empty = default (:days days).', {
-                                    days: String(defaultRetentionDays),
-                                })
-                            }}
-                        </p>
-                        <InputError :message="settingsForm.errors.retention_days" />
-                    </div>
-
-                    <div class="grid gap-2">
-                        <Label for="success-message">{{ $t('Thank you message') }}</Label>
-                        <textarea
-                            id="success-message"
-                            v-model="settingsForm.success_message"
-                            rows="2"
-                            class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-                            :placeholder="$t('Shown after a response is submitted')"
-                        ></textarea>
-                        <InputError :message="settingsForm.errors.success_message" />
-                    </div>
+                    </section>
                 </div>
 
-                <DialogFooter>
+                <DialogFooter class="bg-muted/30 gap-2 border-t px-6 py-4">
                     <Button variant="outline" @click="closeSettings">{{ $t('Cancel') }}</Button>
                     <Button :disabled="settingsForm.processing" @click="saveSettings">{{ $t('Save') }}</Button>
                 </DialogFooter>

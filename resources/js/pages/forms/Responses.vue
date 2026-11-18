@@ -5,8 +5,8 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
-import { BarChart3, Download, Eye, ExternalLink, FileDown, List, MailCheck, Star, Trash2 } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { BarChart3, ChartPie, Download, Eye, ExternalLink, FileDown, List, MailCheck, Star, Trash2 } from '@lucide/vue';
+import { computed, reactive, ref } from 'vue';
 
 interface ResponseAnswer {
     field_id: number;
@@ -163,6 +163,38 @@ const formatDay = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateStr
 
 // Largest bar of a breakdown, so bars are scaled relative to the top answer.
 const optionsMax = (options: SummaryOption[] = []) => Math.max(1, ...options.map((option) => option.count));
+
+// A pie only makes sense when each respondent gives one answer (parts sum to
+// 100%): single choice, dropdown and ratings — not checkboxes.
+const canPie = (stat: FieldSummary) =>
+    stat.kind === 'rating' || (stat.kind === 'choices' && fieldById.value.get(stat.field_id)?.type !== 'checkboxes');
+
+// Chart type picked per question; choices default to a pie, ratings to bars.
+const chartMode = reactive<Record<number, 'bar' | 'pie'>>({});
+
+const isPie = (stat: FieldSummary) => canPie(stat) && (chartMode[stat.field_id] ?? (stat.kind === 'choices' ? 'pie' : 'bar')) === 'pie';
+
+// Categorical palette, distinguishable in both light and dark themes.
+const PIE_COLORS = ['#2563eb', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#64748b'];
+
+const pieColor = (index: number, option: SummaryOption) => (option.other ? '#94a3b8' : PIE_COLORS[index % PIE_COLORS.length]);
+
+// SVG donut slices on a circle of circumference 100, so dash lengths are percentages.
+const pieSlices = (stat: FieldSummary) => {
+    let offset = 0;
+
+    return (stat.options ?? []).flatMap((option, index) => {
+        if (option.count === 0 || stat.answered === 0) {
+            return [];
+        }
+
+        const size = (option.count / stat.answered) * 100;
+        const slice = { color: pieColor(index, option), size, offset };
+        offset += size;
+
+        return [slice];
+    });
+};
 </script>
 
 <template>
@@ -251,10 +283,36 @@ const optionsMax = (options: SummaryOption[] = []) => Math.max(1, ...options.map
                 </div>
 
                 <div v-for="stat in summary.fields" :key="stat.field_id" class="rounded-xl border p-5">
-                    <p v-if="fieldById.get(stat.field_id)?.section" class="text-muted-foreground text-xs tracking-wide uppercase">
-                        {{ fieldById.get(stat.field_id)?.section }}
-                    </p>
-                    <h2 class="font-medium">{{ fieldById.get(stat.field_id)?.label }}</h2>
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <p v-if="fieldById.get(stat.field_id)?.section" class="text-muted-foreground text-xs tracking-wide uppercase">
+                                {{ fieldById.get(stat.field_id)?.section }}
+                            </p>
+                            <h2 class="font-medium">{{ fieldById.get(stat.field_id)?.label }}</h2>
+                        </div>
+                        <div v-if="canPie(stat) && stat.answered > 0" class="bg-muted/40 flex shrink-0 gap-0.5 rounded-md border p-0.5">
+                            <button
+                                v-for="mode in [
+                                    { value: 'bar' as const, label: 'Bars', icon: BarChart3 },
+                                    { value: 'pie' as const, label: 'Pie chart', icon: ChartPie },
+                                ]"
+                                :key="mode.value"
+                                type="button"
+                                class="rounded p-1.5 transition-colors"
+                                :class="
+                                    (isPie(stat) ? 'pie' : 'bar') === mode.value
+                                        ? 'bg-background shadow-sm'
+                                        : 'text-muted-foreground hover:text-foreground'
+                                "
+                                :aria-label="$t(mode.label)"
+                                :title="$t(mode.label)"
+                                :aria-pressed="(isPie(stat) ? 'pie' : 'bar') === mode.value"
+                                @click="chartMode[stat.field_id] = mode.value"
+                            >
+                                <component :is="mode.icon" class="h-4 w-4" />
+                            </button>
+                        </div>
+                    </div>
                     <p class="text-muted-foreground mb-4 text-sm">
                         {{
                             $t(':count of :total responded (:percent%)', {
@@ -276,7 +334,41 @@ const optionsMax = (options: SummaryOption[] = []) => Math.max(1, ...options.map
                             >
                         </div>
 
-                        <div v-if="stat.kind === 'choices' || stat.kind === 'rating'" class="grid gap-2">
+                        <div v-if="isPie(stat)" class="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
+                            <svg
+                                viewBox="0 0 42 42"
+                                class="h-44 w-44 shrink-0 -rotate-90"
+                                role="img"
+                                :aria-label="fieldById.get(stat.field_id)?.label"
+                            >
+                                <circle cx="21" cy="21" r="15.915" fill="none" class="stroke-muted" stroke-width="7" />
+                                <circle
+                                    v-for="(slice, index) in pieSlices(stat)"
+                                    :key="index"
+                                    cx="21"
+                                    cy="21"
+                                    r="15.915"
+                                    fill="none"
+                                    :stroke="slice.color"
+                                    stroke-width="7"
+                                    :stroke-dasharray="`${slice.size} ${100 - slice.size}`"
+                                    :stroke-dashoffset="-slice.offset"
+                                />
+                            </svg>
+                            <ul class="grid w-full max-w-md gap-2 self-center">
+                                <li v-for="(option, index) in stat.options" :key="option.label ?? '__other'" class="flex items-center gap-3 text-sm">
+                                    <span class="h-3 w-3 shrink-0 rounded-sm" :style="{ backgroundColor: pieColor(index, option) }" />
+                                    <span class="flex-1 truncate" :class="option.other ? 'text-muted-foreground italic' : ''">
+                                        {{ option.other ? $t('Other') : option.label }}
+                                    </span>
+                                    <span class="text-muted-foreground shrink-0 tabular-nums">
+                                        {{ option.count }} · {{ percent(option.count, stat.answered) }}%
+                                    </span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div v-else-if="stat.kind === 'choices' || stat.kind === 'rating'" class="grid gap-2">
                             <div v-for="option in stat.options" :key="option.label ?? '__other'" class="grid gap-1">
                                 <div class="flex justify-between gap-3 text-sm">
                                     <span class="truncate" :class="option.other ? 'text-muted-foreground italic' : ''">
