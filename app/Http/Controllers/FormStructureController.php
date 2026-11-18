@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Form;
 use App\Models\FormField;
+use App\Models\FormSection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -41,15 +42,8 @@ class FormStructureController extends Controller
             'sections.*.fields.*.options.min_date' => ['nullable', 'date'],
             'sections.*.fields.*.options.max_date' => ['nullable', 'date', 'after_or_equal:sections.*.fields.*.options.min_date'],
             'sections.*.fields.*.options.allow_other' => ['nullable', 'boolean'],
-            'sections.*.fields.*.visibility' => ['nullable', 'array'],
-            'sections.*.fields.*.visibility.mode' => ['required_with:sections.*.fields.*.visibility', Rule::in(['visible_if', 'hidden_if'])],
-            'sections.*.fields.*.visibility.logic' => ['required_with:sections.*.fields.*.visibility', Rule::in(['all', 'any'])],
-            'sections.*.fields.*.visibility.conditions' => ['required_with:sections.*.fields.*.visibility', 'array', 'min:1', 'max:10'],
-            'sections.*.fields.*.visibility.conditions.*.field_id' => ['required', 'integer'],
-            'sections.*.fields.*.visibility.conditions.*.operator' => ['required', Rule::in([
-                'equals', 'not_equals', 'contains', 'not_contains', 'empty', 'not_empty', 'greater_than', 'less_than',
-            ])],
-            'sections.*.fields.*.visibility.conditions.*.value' => ['nullable', 'string', 'max:500'],
+            ...$this->visibilityRules('sections.*.visibility'),
+            ...$this->visibilityRules('sections.*.fields.*.visibility'),
         ]);
 
         DB::transaction(function () use ($form, $validated) {
@@ -66,6 +60,7 @@ class FormStructureController extends Controller
                 $sectionAttributes = [
                     'title' => $sectionData['title'] ?? null,
                     'description' => $sectionData['description'] ?? null,
+                    'visibility' => $sectionData['visibility'] ?? null,
                     'position' => $sectionPosition,
                 ];
 
@@ -111,31 +106,63 @@ class FormStructureController extends Controller
     }
 
     /**
-     * Drop visibility conditions that reference a field that no longer
-     * exists (deleted this save) or itself, so a field can never end up
-     * permanently hidden because of a stale reference elsewhere.
+     * Validation rules for a `visibility` payload at the given key.
+     *
+     * @return array<string, array<int, mixed>>
+     */
+    private function visibilityRules(string $key): array
+    {
+        return [
+            $key => ['nullable', 'array'],
+            "{$key}.mode" => ["required_with:{$key}", Rule::in(['visible_if', 'hidden_if'])],
+            "{$key}.logic" => ["required_with:{$key}", Rule::in(['all', 'any'])],
+            "{$key}.conditions" => ["required_with:{$key}", 'array', 'min:1', 'max:10'],
+            "{$key}.conditions.*.field_id" => ['required', 'integer'],
+            "{$key}.conditions.*.operator" => ['required', Rule::in([
+                'equals', 'not_equals', 'contains', 'not_contains', 'empty', 'not_empty', 'greater_than', 'less_than',
+            ])],
+            "{$key}.conditions.*.value" => ['nullable', 'string', 'max:500'],
+        ];
+    }
+
+    /**
+     * Drop visibility conditions that could never be meaningfully evaluated,
+     * so nothing ends up permanently hidden because of a stale reference:
+     * a field depending on a deleted field or on itself, or a section
+     * depending on a deleted field or on one of its own fields.
      *
      * @param  array<int, int>  $keptFieldIds
      */
     private function pruneDanglingVisibility(Form $form, array $keptFieldIds): void
     {
-        $form->fields()->whereNotNull('visibility')->get()->each(function (FormField $field) use ($keptFieldIds) {
-            $visibility = $field->visibility;
+        $form->fields()->whereNotNull('visibility')->get()->each(
+            fn (FormField $field) => $this->pruneConditions($field, fn (int $id) => $id !== $field->id && in_array($id, $keptFieldIds, true))
+        );
 
-            if (empty($visibility['conditions'])) {
-                return;
-            }
+        $form->sections()->with('fields:id,form_section_id')->whereNotNull('visibility')->get()->each(function (FormSection $section) use ($keptFieldIds) {
+            $ownFieldIds = $section->fields->modelKeys();
 
-            $conditions = array_values(array_filter(
-                $visibility['conditions'],
-                fn (array $condition) => $condition['field_id'] !== $field->id && in_array($condition['field_id'], $keptFieldIds, true)
-            ));
-
-            if (count($conditions) === count($visibility['conditions'])) {
-                return;
-            }
-
-            $field->update(['visibility' => $conditions ? [...$visibility, 'conditions' => $conditions] : null]);
+            $this->pruneConditions($section, fn (int $id) => in_array($id, $keptFieldIds, true) && ! in_array($id, $ownFieldIds, true));
         });
+    }
+
+    /**
+     * @param  callable(int): bool  $keep  whether a condition on the given field id is still valid
+     */
+    private function pruneConditions(FormField|FormSection $model, callable $keep): void
+    {
+        $visibility = $model->visibility;
+
+        if (empty($visibility['conditions'])) {
+            return;
+        }
+
+        $conditions = array_values(array_filter($visibility['conditions'], fn (array $condition) => $keep((int) $condition['field_id'])));
+
+        if (count($conditions) === count($visibility['conditions'])) {
+            return;
+        }
+
+        $model->update(['visibility' => $conditions ? [...$visibility, 'conditions' => $conditions] : null]);
     }
 }

@@ -161,10 +161,14 @@ class FormController extends Controller
         }
 
         $fieldIdMap = [];
-        $fieldsWithVisibility = [];
+        $withVisibility = [];
 
         foreach ($form->sections()->with('fields')->get() as $section) {
             $newSection = $copy->sections()->create($section->only(['title', 'description', 'position']));
+
+            if ($section->visibility) {
+                $withVisibility[] = [$newSection, $section->visibility];
+            }
 
             foreach ($section->fields as $field) {
                 $newField = $copy->fields()->create([
@@ -175,7 +179,7 @@ class FormController extends Controller
                 $fieldIdMap[$field->id] = $newField->id;
 
                 if ($field->visibility) {
-                    $fieldsWithVisibility[] = [$newField, $field->visibility];
+                    $withVisibility[] = [$newField, $field->visibility];
                 }
             }
         }
@@ -183,14 +187,14 @@ class FormController extends Controller
         // Visibility conditions reference field ids from the original form;
         // remap them to the freshly created copies (dropping conditions on
         // fields that, for whatever reason, weren't duplicated).
-        foreach ($fieldsWithVisibility as [$newField, $visibility]) {
+        foreach ($withVisibility as [$copied, $visibility]) {
             $conditions = collect($visibility['conditions'] ?? [])
                 ->filter(fn (array $condition) => isset($fieldIdMap[$condition['field_id']]))
                 ->map(fn (array $condition) => [...$condition, 'field_id' => $fieldIdMap[$condition['field_id']]])
                 ->values()
                 ->all();
 
-            $newField->update(['visibility' => $conditions ? [...$visibility, 'conditions' => $conditions] : null]);
+            $copied->update(['visibility' => $conditions ? [...$visibility, 'conditions' => $conditions] : null]);
         }
 
         return redirect()->route('forms.edit', $copy)->with('success', __('messages.form_duplicated'));
@@ -275,6 +279,7 @@ class FormController extends Controller
                 'id' => $section->id,
                 'title' => $section->title,
                 'description' => $section->description,
+                'visibility' => $section->visibility,
                 'fields' => $section->fields->map(fn (FormField $field) => [
                     'id' => $field->id,
                     'type' => $field->type,

@@ -438,3 +438,67 @@ test('notification recipients receive the new response email', function () {
     Mail::assertSent(NewResponseMail::class, fn (NewResponseMail $mail) => $mail->hasTo('other@example.com'));
     Mail::assertSent(NewResponseMail::class, 2);
 });
+
+test('questions of a hidden section are neither required nor stored', function () {
+    $form = publishedForm();
+    $trigger = FormField::factory()->for($form)->type('choice')->create([
+        'form_section_id' => $form->sections->first()->id,
+        'options' => ['choices' => ['Oui', 'Non']],
+    ]);
+    $second = $form->sections()->create([
+        'position' => 1,
+        'visibility' => [
+            'mode' => 'visible_if',
+            'logic' => 'all',
+            'conditions' => [['field_id' => $trigger->id, 'operator' => 'equals', 'value' => 'Oui']],
+        ],
+    ]);
+
+    $required = FormField::factory()->for($form)->required()->create(['form_section_id' => $second->id]);
+    $optional = FormField::factory()->for($form)->create(['form_section_id' => $second->id]);
+
+    $this->post("/f/{$form->slug}", [
+        'consent' => true,
+        'answers' => [$trigger->id => 'Non', $optional->id => 'Sneaked in'],
+    ])->assertRedirect(route('public.forms.thanks', $form->slug));
+
+    expect(Response::first()->answers()->whereIn('form_field_id', [$required->id, $optional->id])->exists())->toBeFalse();
+
+    // Once the section is shown, its required question is enforced again.
+    $this->post("/f/{$form->slug}", [
+        'consent' => true,
+        'answers' => [$trigger->id => 'Oui'],
+    ])->assertSessionHasErrors("answers.{$required->id}");
+});
+
+test('a field depending on a question of a hidden section treats it as unanswered', function () {
+    $form = publishedForm();
+    $first = $form->sections->first();
+
+    $gate = FormField::factory()->for($form)->type('choice')->create([
+        'form_section_id' => $first->id,
+        'options' => ['choices' => ['Oui', 'Non']],
+    ]);
+    $hiddenSection = $form->sections()->create(['position' => 1]);
+    $hiddenAnswer = FormField::factory()->for($form)->create(['form_section_id' => $hiddenSection->id]);
+    $hiddenSection->update(['visibility' => [
+        'mode' => 'visible_if', 'logic' => 'all',
+        'conditions' => [['field_id' => $gate->id, 'operator' => 'equals', 'value' => 'Oui']],
+    ]]);
+
+    $dependent = FormField::factory()->for($form)->required()->create([
+        'form_section_id' => $first->id,
+        'visibility' => [
+            'mode' => 'visible_if', 'logic' => 'all',
+            'conditions' => [['field_id' => $hiddenAnswer->id, 'operator' => 'not_empty']],
+        ],
+    ]);
+
+    // A value smuggled into the hidden section must not reveal the dependent question.
+    $this->post("/f/{$form->slug}", [
+        'consent' => true,
+        'answers' => [$gate->id => 'Non', $hiddenAnswer->id => 'x'],
+    ])->assertRedirect(route('public.forms.thanks', $form->slug));
+
+    expect(Response::first()->answers()->where('form_field_id', $dependent->id)->exists())->toBeFalse();
+});

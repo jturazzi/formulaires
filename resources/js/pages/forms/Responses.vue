@@ -5,7 +5,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
-import { Download, Eye, ExternalLink, FileDown, MailCheck, Trash2 } from '@lucide/vue';
+import { BarChart3, Download, Eye, ExternalLink, FileDown, List, MailCheck, Star, Trash2 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 
 interface ResponseAnswer {
@@ -25,14 +25,41 @@ interface ResponseRow {
     answers: ResponseAnswer[];
 }
 
+interface SummaryOption {
+    label: string | null;
+    count: number;
+    other: boolean;
+}
+
+interface FieldSummary {
+    field_id: number;
+    answered: number;
+    kind: 'choices' | 'rating' | 'number' | 'range' | 'text' | 'file';
+    options?: SummaryOption[];
+    samples?: string[];
+    average?: number | null;
+    min?: number | string | null;
+    max?: number | string | null;
+}
+
+interface Summary {
+    total: number;
+    last_7_days: number;
+    last_submitted_at: string | null;
+    timeline: { date: string; count: number }[];
+    fields: FieldSummary[];
+}
+
 const props = defineProps<{
+    view: 'summary' | 'list';
+    summary: Summary | null;
     form: {
         id: number;
         title: string;
         status: string;
         retention_days: number;
     };
-    fields: { id: number; type: string; label: string; required: boolean }[];
+    fields: { id: number; type: string; label: string; required: boolean; section: string | null }[];
     responses: {
         data: ResponseRow[];
         meta: { current_page: number; last_page: number; total: number };
@@ -104,8 +131,38 @@ const confirmDelete = () => {
 };
 
 const goToPage = (pageNumber: number) => {
-    router.get(route('forms.responses.index', props.form.id), { page: pageNumber }, { preserveScroll: true });
+    router.get(route('forms.responses.index', props.form.id), { view: 'list', page: pageNumber }, { preserveScroll: true });
 };
+
+const switchView = (view: 'summary' | 'list') => {
+    if (view !== props.view) {
+        router.get(route('forms.responses.index', props.form.id), { view }, { preserveScroll: true });
+    }
+};
+
+/* Summary ---------------------------------------------------------------- */
+
+const fieldById = computed(() => new Map(props.fields.map((field) => [field.id, field])));
+
+const percent = (count: number, of: number) => (of > 0 ? Math.round((count / of) * 100) : 0);
+
+const formatNumber = (value: number | string | null | undefined) =>
+    value === null || value === undefined ? '—' : Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+const formatRangeValue = (type: string | undefined, value: number | string | null | undefined) => {
+    if (value === null || value === undefined) {
+        return '—';
+    }
+
+    return type === 'date' ? new Date(`${value}T00:00:00`).toLocaleDateString() : String(value);
+};
+
+const timelineMax = computed(() => Math.max(1, ...(props.summary?.timeline ?? []).map((day) => day.count)));
+
+const formatDay = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+
+// Largest bar of a breakdown, so bars are scaled relative to the top answer.
+const optionsMax = (options: SummaryOption[] = []) => Math.max(1, ...options.map((option) => option.count));
 </script>
 
 <template>
@@ -116,7 +173,7 @@ const goToPage = (pageNumber: number) => {
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h1 class="text-xl font-semibold">{{ form.title }}</h1>
-                    <p class="text-sm text-muted-foreground">
+                    <p class="text-muted-foreground text-sm">
                         {{ responses.meta.total }} {{ $t('response(s)') }} ·
                         {{ $t('kept :days days', { days: String(form.retention_days) }) }}
                     </p>
@@ -129,16 +186,179 @@ const goToPage = (pageNumber: number) => {
                 </Button>
             </div>
 
-            <div v-if="responses.data.length === 0" class="rounded-xl border border-dashed p-16 text-center text-muted-foreground">
+            <div class="bg-muted/40 flex w-fit gap-1 rounded-lg border p-1" role="tablist">
+                <button
+                    v-for="tab in [
+                        { view: 'summary' as const, label: 'Summary', icon: BarChart3 },
+                        { view: 'list' as const, label: 'Individual responses', icon: List },
+                    ]"
+                    :key="tab.view"
+                    type="button"
+                    role="tab"
+                    :aria-selected="view === tab.view"
+                    class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+                    :class="view === tab.view ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+                    @click="switchView(tab.view)"
+                >
+                    <component :is="tab.icon" class="h-4 w-4" />
+                    {{ $t(tab.label) }}
+                </button>
+            </div>
+
+            <div v-if="responses.meta.total === 0" class="text-muted-foreground rounded-xl border border-dashed p-16 text-center">
                 {{ $t('No responses yet.') }}
             </div>
 
-            <div v-else class="overflow-x-auto rounded-xl border">
+            <!-- Summary -->
+            <template v-else-if="view === 'summary' && summary">
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <div class="rounded-xl border p-4">
+                        <p class="text-muted-foreground text-sm">{{ $t('Total responses') }}</p>
+                        <p class="mt-1 text-2xl font-semibold">{{ summary.total }}</p>
+                    </div>
+                    <div class="rounded-xl border p-4">
+                        <p class="text-muted-foreground text-sm">{{ $t('Last 7 days') }}</p>
+                        <p class="mt-1 text-2xl font-semibold">{{ summary.last_7_days }}</p>
+                    </div>
+                    <div class="rounded-xl border p-4">
+                        <p class="text-muted-foreground text-sm">{{ $t('Latest response') }}</p>
+                        <p class="mt-1 text-lg font-semibold">{{ summary.last_submitted_at ? formatDateTime(summary.last_submitted_at) : '—' }}</p>
+                    </div>
+                </div>
+
+                <div class="rounded-xl border p-4">
+                    <p class="mb-3 text-sm font-medium">{{ $t('Responses over the last 30 days') }}</p>
+                    <div class="flex h-28 items-end gap-0.5" role="list">
+                        <div
+                            v-for="day in summary.timeline"
+                            :key="day.date"
+                            role="listitem"
+                            class="group relative flex h-full flex-1 items-end"
+                            :title="`${formatDay(day.date)} : ${day.count}`"
+                            :aria-label="`${formatDay(day.date)} : ${day.count}`"
+                        >
+                            <div
+                                class="bg-primary/80 group-hover:bg-primary w-full rounded-t-sm"
+                                :style="{ height: day.count ? `${Math.max(4, (day.count / timelineMax) * 100)}%` : '1px' }"
+                                :class="day.count ? '' : 'bg-border'"
+                            />
+                        </div>
+                    </div>
+                    <div v-if="summary.timeline.length" class="text-muted-foreground mt-1 flex justify-between text-xs">
+                        <span>{{ formatDay(summary.timeline[0].date) }}</span>
+                        <span>{{ formatDay(summary.timeline[summary.timeline.length - 1].date) }}</span>
+                    </div>
+                </div>
+
+                <div v-for="stat in summary.fields" :key="stat.field_id" class="rounded-xl border p-5">
+                    <p v-if="fieldById.get(stat.field_id)?.section" class="text-muted-foreground text-xs tracking-wide uppercase">
+                        {{ fieldById.get(stat.field_id)?.section }}
+                    </p>
+                    <h2 class="font-medium">{{ fieldById.get(stat.field_id)?.label }}</h2>
+                    <p class="text-muted-foreground mb-4 text-sm">
+                        {{
+                            $t(':count of :total responded (:percent%)', {
+                                count: String(stat.answered),
+                                total: String(summary.total),
+                                percent: String(percent(stat.answered, summary.total)),
+                            })
+                        }}
+                    </p>
+
+                    <p v-if="stat.answered === 0" class="text-muted-foreground text-sm">{{ $t('No answers to this question yet.') }}</p>
+
+                    <template v-else>
+                        <div v-if="stat.kind === 'rating'" class="mb-4 flex items-baseline gap-2">
+                            <Star class="h-5 w-5 self-center fill-amber-400 text-amber-400" />
+                            <span class="text-2xl font-semibold">{{ formatNumber(stat.average) }}</span>
+                            <span class="text-muted-foreground text-sm"
+                                >/ {{ stat.options?.[stat.options.length - 1]?.label }} {{ $t('on average') }}</span
+                            >
+                        </div>
+
+                        <div v-if="stat.kind === 'choices' || stat.kind === 'rating'" class="grid gap-2">
+                            <div v-for="option in stat.options" :key="option.label ?? '__other'" class="grid gap-1">
+                                <div class="flex justify-between gap-3 text-sm">
+                                    <span class="truncate" :class="option.other ? 'text-muted-foreground italic' : ''">
+                                        {{ option.other ? $t('Other') : option.label }}
+                                    </span>
+                                    <span class="text-muted-foreground shrink-0 tabular-nums">
+                                        {{ option.count }} · {{ percent(option.count, stat.answered) }}%
+                                    </span>
+                                </div>
+                                <div class="bg-muted h-2 overflow-hidden rounded-full">
+                                    <div
+                                        class="bg-primary h-full rounded-full"
+                                        :style="{ width: `${(option.count / optionsMax(stat.options)) * 100}%` }"
+                                    />
+                                </div>
+                            </div>
+                            <p
+                                v-if="stat.kind === 'choices' && fieldById.get(stat.field_id)?.type === 'checkboxes'"
+                                class="text-muted-foreground text-xs"
+                            >
+                                {{ $t('Several answers possible: percentages may add up to more than 100%.') }}
+                            </p>
+                        </div>
+
+                        <div v-if="stat.kind === 'number'" class="grid grid-cols-3 gap-3">
+                            <div
+                                v-for="item in [
+                                    { label: 'Average', value: stat.average },
+                                    { label: 'Minimum', value: stat.min },
+                                    { label: 'Maximum', value: stat.max },
+                                ]"
+                                :key="item.label"
+                                class="bg-muted/50 rounded-lg p-3"
+                            >
+                                <p class="text-muted-foreground text-xs">{{ $t(item.label) }}</p>
+                                <p class="text-lg font-semibold tabular-nums">{{ formatNumber(item.value) }}</p>
+                            </div>
+                        </div>
+
+                        <div v-if="stat.kind === 'range'" class="grid grid-cols-2 gap-3">
+                            <div class="bg-muted/50 rounded-lg p-3">
+                                <p class="text-muted-foreground text-xs">{{ $t('Earliest') }}</p>
+                                <p class="text-lg font-semibold">{{ formatRangeValue(fieldById.get(stat.field_id)?.type, stat.min) }}</p>
+                            </div>
+                            <div class="bg-muted/50 rounded-lg p-3">
+                                <p class="text-muted-foreground text-xs">{{ $t('Latest') }}</p>
+                                <p class="text-lg font-semibold">{{ formatRangeValue(fieldById.get(stat.field_id)?.type, stat.max) }}</p>
+                            </div>
+                        </div>
+
+                        <p v-if="stat.kind === 'file'" class="text-sm">{{ $t(':count file(s) received', { count: String(stat.answered) }) }}</p>
+
+                        <div v-if="stat.samples?.length" class="mt-4 grid gap-2">
+                            <p class="text-muted-foreground text-xs font-medium">
+                                {{ stat.kind === 'choices' ? $t('“Other” answers') : $t('Latest answers') }}
+                            </p>
+                            <p
+                                v-for="(sample, index) in stat.samples"
+                                :key="index"
+                                class="bg-muted/50 rounded-lg px-3 py-2 text-sm whitespace-pre-line"
+                            >
+                                {{ sample }}
+                            </p>
+                            <button
+                                v-if="stat.kind === 'text' && stat.answered > stat.samples.length"
+                                type="button"
+                                class="text-primary w-fit text-sm hover:underline"
+                                @click="switchView('list')"
+                            >
+                                {{ $t('See all :count answers', { count: String(stat.answered) }) }}
+                            </button>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <div v-else-if="view === 'list'" class="overflow-x-auto rounded-xl border">
                 <table class="w-full text-sm">
                     <thead>
-                        <tr class="border-b bg-muted/50 text-left">
-                            <th class="whitespace-nowrap px-4 py-3 font-medium">{{ $t('Date') }}</th>
-                            <th class="whitespace-nowrap px-4 py-3 font-medium">{{ $t('Email') }}</th>
+                        <tr class="bg-muted/50 border-b text-left">
+                            <th class="px-4 py-3 font-medium whitespace-nowrap">{{ $t('Date') }}</th>
+                            <th class="px-4 py-3 font-medium whitespace-nowrap">{{ $t('Email') }}</th>
                             <th v-for="field in columnFields" :key="field.id" class="max-w-48 truncate px-4 py-3 font-medium">
                                 {{ field.label }}
                             </th>
@@ -146,9 +366,9 @@ const goToPage = (pageNumber: number) => {
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="response in responses.data" :key="response.id" class="border-b last:border-0 hover:bg-muted/30">
-                            <td class="whitespace-nowrap px-4 py-3">{{ formatDateTime(response.submitted_at) }}</td>
-                            <td class="whitespace-nowrap px-4 py-3">
+                        <tr v-for="response in responses.data" :key="response.id" class="hover:bg-muted/30 border-b last:border-0">
+                            <td class="px-4 py-3 whitespace-nowrap">{{ formatDateTime(response.submitted_at) }}</td>
+                            <td class="px-4 py-3 whitespace-nowrap">
                                 <span v-if="response.email" class="inline-flex items-center gap-1">
                                     {{ response.email }}
                                     <MailCheck v-if="response.email_verified" class="h-3.5 w-3.5 text-green-600" />
@@ -158,14 +378,14 @@ const goToPage = (pageNumber: number) => {
                             <td v-for="field in columnFields" :key="field.id" class="max-w-48 truncate px-4 py-3">
                                 {{ displayValue(answerFor(response, field.id)) }}
                             </td>
-                            <td class="whitespace-nowrap px-4 py-3 text-right">
+                            <td class="px-4 py-3 text-right whitespace-nowrap">
                                 <Button variant="ghost" size="icon" class="h-8 w-8" :aria-label="$t('View')" @click="selected = response">
                                     <Eye class="h-4 w-4" />
                                 </Button>
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    class="h-8 w-8 text-muted-foreground hover:text-red-600"
+                                    class="text-muted-foreground h-8 w-8 hover:text-red-600"
                                     :aria-label="$t('Delete')"
                                     @click="deleteCandidate = response"
                                 >
@@ -177,11 +397,11 @@ const goToPage = (pageNumber: number) => {
                 </table>
             </div>
 
-            <div v-if="responses.meta.last_page > 1" class="flex items-center justify-center gap-2">
+            <div v-if="view === 'list' && responses.meta.last_page > 1" class="flex items-center justify-center gap-2">
                 <Button variant="outline" size="sm" :disabled="responses.meta.current_page <= 1" @click="goToPage(responses.meta.current_page - 1)">
                     {{ $t('Previous') }}
                 </Button>
-                <span class="text-sm text-muted-foreground">{{ responses.meta.current_page }} / {{ responses.meta.last_page }}</span>
+                <span class="text-muted-foreground text-sm">{{ responses.meta.current_page }} / {{ responses.meta.last_page }}</span>
                 <Button
                     variant="outline"
                     size="sm"
@@ -213,27 +433,27 @@ const goToPage = (pageNumber: number) => {
                                     :href="previewUrl(answerFor(selected, field.id)!)"
                                     target="_blank"
                                     rel="noopener"
-                                    class="inline-flex w-fit items-center gap-2 rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
+                                    class="hover:bg-muted inline-flex w-fit items-center gap-2 rounded-md border px-3 py-1.5 text-sm"
                                 >
                                     <ExternalLink class="h-4 w-4" />
                                     {{ $t('Preview') }}
                                 </a>
                                 <a
                                     :href="answerFor(selected, field.id)!.file_url!"
-                                    class="inline-flex w-fit items-center gap-2 rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
+                                    class="hover:bg-muted inline-flex w-fit items-center gap-2 rounded-md border px-3 py-1.5 text-sm"
                                 >
                                     <Download class="h-4 w-4" />
                                     {{ $t('Download') }}
                                 </a>
                             </div>
-                            <p class="text-xs text-muted-foreground">
+                            <p class="text-muted-foreground text-xs">
                                 {{ answerFor(selected, field.id)!.file_name }} · {{ formatSize(answerFor(selected, field.id)!.file_size) }}
                             </p>
                         </template>
-                        <p v-else class="whitespace-pre-line text-sm text-muted-foreground">{{ displayValue(answerFor(selected, field.id)) }}</p>
+                        <p v-else class="text-muted-foreground text-sm whitespace-pre-line">{{ displayValue(answerFor(selected, field.id)) }}</p>
                     </div>
 
-                    <p class="border-t pt-3 text-xs text-muted-foreground">
+                    <p class="text-muted-foreground border-t pt-3 text-xs">
                         {{ $t('Consent given on :date.', { date: formatDateTime(selected.consented_at) }) }}
                     </p>
                 </div>

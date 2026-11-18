@@ -27,6 +27,7 @@ class FormSubmissionService
             $rules['code'] = ['required', 'digits:6'];
         }
 
+        $form->loadMissing('fields.section');
         $fieldsById = $form->fields->keyBy('id');
         $rawValues = $this->rawAnswerValues($form, $request);
 
@@ -121,6 +122,7 @@ class FormSubmissionService
                 'submitted_at' => now(),
             ]);
 
+            $form->loadMissing('fields.section');
             $fieldsById = $form->fields->keyBy('id');
             $rawValues = $this->rawAnswerValues($form, $request);
 

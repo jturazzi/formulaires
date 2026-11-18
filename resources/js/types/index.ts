@@ -105,6 +105,7 @@ export interface FormSectionData {
     id: number | null;
     title: string | null;
     description: string | null;
+    visibility: FieldVisibility | null;
     fields: FormFieldData[];
 }
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Answer;
 use App\Models\Form;
 use App\Models\Response;
+use App\Services\ResponseSummaryService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -14,7 +15,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class FormResponseController extends Controller
 {
-    public function index(Request $request, Form $form): InertiaResponse
+    public function index(Request $request, Form $form, ResponseSummaryService $summary): InertiaResponse
     {
         $this->authorize('view', $form);
 
@@ -27,8 +28,11 @@ class FormResponseController extends Controller
             ->withQueryString();
 
         $fields = $form->fields->filter->isInput()->values();
+        $view = $request->query('view') === 'list' ? 'list' : 'summary';
 
         return Inertia::render('forms/Responses', [
+            'view' => $view,
+            'summary' => $view === 'summary' ? $summary->build($form, $fields) : null,
             'form' => [
                 'id' => $form->id,
                 'title' => $form->title,
@@ -40,6 +44,7 @@ class FormResponseController extends Controller
                 'type' => $field->type,
                 'label' => $field->label,
                 'required' => $field->required,
+                'section' => $field->section?->title,
             ]),
             'responses' => [
                 'data' => collect($responses->items())->map(fn (Response $response) => $this->responsePayload($response)),

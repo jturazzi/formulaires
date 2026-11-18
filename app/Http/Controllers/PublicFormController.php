@@ -40,7 +40,7 @@ class PublicFormController extends Controller
 
         abort_unless($form->isOpen(), 404);
 
-        $form->load('fields');
+        $form->load('fields.section');
 
         $validated = $request->validate($service->rules($form, $request), [], $service->attributes($form));
 
@@ -108,6 +108,7 @@ class PublicFormController extends Controller
                 'id' => $section->id,
                 'title' => $section->title,
                 'description' => $section->description,
+                'visibility' => $section->visibility,
                 'fields' => $section->fields->map(fn (FormField $field) => [
                     'id' => $field->id,
                     'type' => $field->type,

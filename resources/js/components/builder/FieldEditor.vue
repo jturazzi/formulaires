@@ -317,7 +317,11 @@ const removeChoice = (index: number) => {
                 </p>
                 <p v-if="field.type === 'rating_number'" class="text-muted-foreground text-xs">{{ $t('Respondents pick a rating from 0 to 10.') }}</p>
 
-                <VisibilityEditor :field="field" :conditionable-fields="conditionableFields" :errors="visibilityErrors" />
+                <VisibilityEditor
+                    :target="field"
+                    :conditionable-fields="conditionableFields.filter((other) => other.id !== field.id)"
+                    :errors="visibilityErrors"
+                />
 
                 <div v-if="field.type !== 'info'" class="flex items-center gap-2">
                     <Checkbox :id="`required-${field.id ?? 'new'}`" v-model:checked="field.required" />

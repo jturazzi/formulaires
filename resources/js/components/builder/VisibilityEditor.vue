@@ -3,17 +3,20 @@
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { type FieldType, type FormFieldData, type VisibilityCondition, type VisibilityOperator } from '@/types';
+import { type FieldType, type FieldVisibility, type FormFieldData, type VisibilityCondition, type VisibilityOperator } from '@/types';
 import { Plus, X } from '@lucide/vue';
 import { computed } from 'vue';
 
 const props = withDefaults(
     defineProps<{
-        field: FormFieldData;
+        /** The question or section whose display rule is edited in place. */
+        target: { visibility: FieldVisibility | null };
+        /** Questions the rule may depend on (the caller excludes the target itself). */
         conditionableFields: (FormFieldData & { id: number })[];
         errors?: Record<string, string>;
+        emptyHint?: string;
     }>(),
-    { errors: () => ({}) },
+    { errors: () => ({}), emptyHint: 'Add another question first, then come back here to set a condition.' },
 );
 
 const conditionError = (index: number, suffix: string) => props.errors[`conditions.${index}.${suffix}`];
@@ -51,8 +54,7 @@ const operatorLabels: Record<VisibilityOperator, string> = {
 
 const VALUELESS_OPERATORS: VisibilityOperator[] = ['empty', 'not_empty'];
 
-// Fields this field can depend on: everyone else, minus itself.
-const selectableFields = computed(() => props.conditionableFields.filter((f) => f.id !== props.field.id));
+const selectableFields = computed(() => props.conditionableFields);
 
 const targetField = (fieldId: number) => selectableFields.value.find((f) => f.id === fieldId) ?? null;
 
@@ -62,16 +64,16 @@ const operatorsFor = (fieldId: number): VisibilityOperator[] => {
 };
 
 const mode = computed<'always' | 'visible_if' | 'hidden_if'>({
-    get: () => props.field.visibility?.mode ?? 'always',
+    get: () => props.target.visibility?.mode ?? 'always',
     set: (value) => {
         if (value === 'always') {
-            props.field.visibility = null;
+            props.target.visibility = null;
             return;
         }
 
-        if (!props.field.visibility) {
+        if (!props.target.visibility) {
             const first = selectableFields.value[0];
-            props.field.visibility = {
+            props.target.visibility = {
                 mode: value,
                 logic: 'all',
                 conditions: first ? [{ field_id: first.id, operator: operatorsFor(first.id)[0], value: '' }] : [],
@@ -79,32 +81,32 @@ const mode = computed<'always' | 'visible_if' | 'hidden_if'>({
             return;
         }
 
-        props.field.visibility.mode = value;
+        props.target.visibility.mode = value;
     },
 });
 
 const logic = computed({
-    get: () => props.field.visibility?.logic ?? 'all',
+    get: () => props.target.visibility?.logic ?? 'all',
     set: (value: 'all' | 'any') => {
-        if (props.field.visibility) {
-            props.field.visibility.logic = value;
+        if (props.target.visibility) {
+            props.target.visibility.logic = value;
         }
     },
 });
 
-const conditions = computed(() => props.field.visibility?.conditions ?? []);
+const conditions = computed(() => props.target.visibility?.conditions ?? []);
 
 const addCondition = () => {
     const first = selectableFields.value[0];
-    if (!first || !props.field.visibility) {
+    if (!first || !props.target.visibility) {
         return;
     }
 
-    props.field.visibility.conditions.push({ field_id: first.id, operator: operatorsFor(first.id)[0], value: '' });
+    props.target.visibility.conditions.push({ field_id: first.id, operator: operatorsFor(first.id)[0], value: '' });
 };
 
 const removeCondition = (index: number) => {
-    props.field.visibility?.conditions.splice(index, 1);
+    props.target.visibility?.conditions.splice(index, 1);
 };
 
 const onDependsOnChange = (condition: VisibilityCondition, fieldId: number) => {
@@ -136,7 +138,7 @@ const expanded = computed(() => mode.value !== 'always');
         <InputError :message="errors.mode || errors.conditions" />
 
         <p v-if="mode !== 'always' && selectableFields.length === 0" class="text-muted-foreground text-xs">
-            {{ $t('Add another question first, then come back here to set a condition.') }}
+            {{ $t(emptyHint) }}
         </p>
 
         <template v-if="mode !== 'always' && selectableFields.length > 0">

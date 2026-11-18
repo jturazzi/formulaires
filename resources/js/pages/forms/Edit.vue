@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import FieldEditor from '@/components/builder/FieldEditor.vue';
+import VisibilityEditor from '@/components/builder/VisibilityEditor.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -120,6 +121,18 @@ const sectionErrors = (sectionIndex: number): Record<string, string> => {
     return result;
 };
 
+// Visibility errors for a given section (e.g. "sections.1.visibility.mode" → "mode").
+const sectionVisibilityErrors = (sectionIndex: number): Record<string, string> =>
+    Object.fromEntries(
+        Object.entries(sectionErrors(sectionIndex))
+            .filter(([key]) => key.startsWith('visibility.'))
+            .map(([key, message]) => [key.slice('visibility.'.length), message]),
+    );
+
+// A section can only depend on questions outside of it: hiding the section
+// hides its own questions, so they could never satisfy the condition.
+const sectionConditionableFields = (section: FormSectionData) => conditionableFields.value.filter((field) => !section.fields.includes(field));
+
 // Errors for a given field (e.g. "sections.1.fields.2.label" → "label").
 const fieldErrorsFor = (sectionIndex: number, fieldIndex: number): Record<string, string> => {
     const prefix = `sections.${sectionIndex}.fields.${fieldIndex}.`;
@@ -193,7 +206,7 @@ const removeField = (section: FormSectionData, index: number) => {
 };
 
 const addSection = () => {
-    sections.push({ id: null, title: '', description: null, fields: [] });
+    sections.push({ id: null, title: '', description: null, visibility: null, fields: [] });
     markDirty();
 };
 
@@ -603,6 +616,12 @@ const statusLabel = computed(() => {
                                     @input="markDirty"
                                 />
                                 <InputError :message="sectionErrors(sectionIndex).description" />
+                                <VisibilityEditor
+                                    :target="section"
+                                    :conditionable-fields="sectionConditionableFields(section)"
+                                    :errors="sectionVisibilityErrors(sectionIndex)"
+                                    empty-hint="Save a question in another section first, then come back here to set a condition."
+                                />
                             </div>
                             <Button
                                 v-if="sections.length > 1"

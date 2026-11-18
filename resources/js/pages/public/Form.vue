@@ -32,6 +32,7 @@ interface PublicSection {
     id: number;
     title: string | null;
     description: string | null;
+    visibility: FieldVisibility | null;
     fields: PublicField[];
 }
 
@@ -215,6 +216,18 @@ const fieldsById = computed(() => {
     return map;
 });
 
+const sectionByFieldId = computed(() => {
+    const map = new Map<number, PublicSection>();
+
+    for (const section of props.form.sections) {
+        for (const field of section.fields) {
+            map.set(field.id, section);
+        }
+    }
+
+    return map;
+});
+
 const isEmptyValue = (value: unknown) => value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0);
 
 const stringifyValue = (value: unknown) => (Array.isArray(value) ? value.join(', ') : String(value ?? ''));
@@ -260,26 +273,42 @@ const evaluateCondition = (condition: VisibilityCondition, value: unknown): bool
     }
 };
 
-const isFieldVisible = (field: PublicField, seen: Set<number> = new Set()): boolean => {
-    const visibility: FieldVisibility | null = field.visibility;
-
-    if (!visibility || !visibility.mode || visibility.conditions.length === 0 || seen.has(field.id)) {
+// Mirrors HasVisibilityConditions on the server. `resolving` holds the
+// elements on the current resolution path, to break dependency cycles.
+const passesConditions = (key: string, visibility: FieldVisibility | null, resolving: Set<string>): boolean => {
+    if (!visibility || !visibility.mode || visibility.conditions.length === 0 || resolving.has(key)) {
         return true;
     }
 
-    seen.add(field.id);
+    resolving.add(key);
 
     const results = visibility.conditions.map((condition) => {
         const target = fieldsById.value.get(condition.field_id);
-        const targetVisible = !target || isFieldVisible(target, seen);
+        const targetVisible = !target || isFieldVisible(target, resolving);
         const value = targetVisible ? submission.answers[condition.field_id] : undefined;
 
         return evaluateCondition(condition, value);
     });
 
+    resolving.delete(key);
+
     const matches = visibility.logic === 'any' ? results.some(Boolean) : results.every(Boolean);
 
     return visibility.mode === 'visible_if' ? matches : !matches;
+};
+
+const isSectionVisible = (section: PublicSection, resolving: Set<string> = new Set()): boolean =>
+    passesConditions(`section:${section.id}`, section.visibility, resolving);
+
+// A question is shown only if its section is shown and its own conditions pass.
+const isFieldVisible = (field: PublicField, resolving: Set<string> = new Set()): boolean => {
+    const section = sectionByFieldId.value.get(field.id);
+
+    if (section && !isSectionVisible(section, resolving)) {
+        return false;
+    }
+
+    return passesConditions(`field:${field.id}`, field.visibility, resolving);
 };
 
 const answerError = (fieldId: number) => (submission.errors as Record<string, string>)[`answers.${fieldId}`];
@@ -384,264 +413,266 @@ const submit = () => {
                 </div>
 
                 <!-- Sections -->
-                <div v-for="section in form.sections" :key="section.id" class="bg-background border-border/60 rounded-2xl border p-6 shadow-sm">
-                    <div v-if="section.title || section.description" class="mb-5 border-b pb-4">
-                        <h2 v-if="section.title" class="text-lg font-semibold">{{ section.title }}</h2>
-                        <p v-if="section.description" class="text-muted-foreground mt-1 text-sm whitespace-pre-line">{{ section.description }}</p>
-                    </div>
+                <template v-for="section in form.sections" :key="section.id">
+                    <div v-if="isSectionVisible(section)" class="bg-background border-border/60 rounded-2xl border p-6 shadow-sm">
+                        <div v-if="section.title || section.description" class="mb-5 border-b pb-4">
+                            <h2 v-if="section.title" class="text-lg font-semibold">{{ section.title }}</h2>
+                            <p v-if="section.description" class="text-muted-foreground mt-1 text-sm whitespace-pre-line">{{ section.description }}</p>
+                        </div>
 
-                    <div class="flex flex-col gap-6">
-                        <template v-for="field in section.fields" :key="field.id">
-                            <template v-if="isFieldVisible(field)">
-                                <!-- Static text block -->
-                                <p v-if="field.type === 'info'" class="text-sm whitespace-pre-line">{{ field.label }}</p>
+                        <div class="flex flex-col gap-6">
+                            <template v-for="field in section.fields" :key="field.id">
+                                <template v-if="isFieldVisible(field)">
+                                    <!-- Static text block -->
+                                    <p v-if="field.type === 'info'" class="text-sm whitespace-pre-line">{{ field.label }}</p>
 
-                                <div v-else :id="`field-block-${field.id}`" class="grid gap-2">
-                                    <Label :for="`field-${field.id}`" class="text-base font-medium">
-                                        {{ field.label }}
-                                        <span v-if="field.required" class="text-red-600" aria-hidden="true">*</span>
-                                    </Label>
-                                    <p v-if="field.description" class="text-muted-foreground text-sm">{{ field.description }}</p>
-                                    <p v-if="fieldHint(field)" class="text-muted-foreground text-xs">{{ fieldHint(field) }}</p>
+                                    <div v-else :id="`field-block-${field.id}`" class="grid gap-2">
+                                        <Label :for="`field-${field.id}`" class="text-base font-medium">
+                                            {{ field.label }}
+                                            <span v-if="field.required" class="text-red-600" aria-hidden="true">*</span>
+                                        </Label>
+                                        <p v-if="field.description" class="text-muted-foreground text-sm">{{ field.description }}</p>
+                                        <p v-if="fieldHint(field)" class="text-muted-foreground text-xs">{{ fieldHint(field) }}</p>
 
-                                    <Input
-                                        v-if="field.type === 'text'"
-                                        :id="`field-${field.id}`"
-                                        v-model="submission.answers[field.id] as string"
-                                        :maxlength="field.options?.max_length ?? 255"
-                                        :required="field.required"
-                                        :class="errorClass(field.id)"
-                                    />
-
-                                    <textarea
-                                        v-else-if="field.type === 'textarea'"
-                                        :id="`field-${field.id}`"
-                                        v-model="submission.answers[field.id] as string"
-                                        rows="4"
-                                        :maxlength="field.options?.max_length ?? 5000"
-                                        :required="field.required"
-                                        class="border-input bg-background ring-offset-background focus-visible:ring-ring flex w-full rounded-md border px-3 py-2 text-base focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none md:text-sm"
-                                        :class="errorClass(field.id)"
-                                    ></textarea>
-
-                                    <Input
-                                        v-else-if="field.type === 'email'"
-                                        :id="`field-${field.id}`"
-                                        v-model="submission.answers[field.id] as string"
-                                        type="email"
-                                        :required="field.required"
-                                        :class="errorClass(field.id)"
-                                    />
-
-                                    <Input
-                                        v-else-if="field.type === 'phone'"
-                                        :id="`field-${field.id}`"
-                                        v-model="submission.answers[field.id] as string"
-                                        type="tel"
-                                        inputmode="tel"
-                                        pattern="[0-9+\-\s()]+"
-                                        maxlength="30"
-                                        :required="field.required"
-                                        :class="errorClass(field.id)"
-                                    />
-
-                                    <Input
-                                        v-else-if="field.type === 'number'"
-                                        :id="`field-${field.id}`"
-                                        v-model="submission.answers[field.id] as string"
-                                        type="number"
-                                        :min="field.options?.min"
-                                        :max="field.options?.max"
-                                        :required="field.required"
-                                        :class="errorClass(field.id)"
-                                    />
-
-                                    <Input
-                                        v-else-if="field.type === 'date'"
-                                        :id="`field-${field.id}`"
-                                        v-model="submission.answers[field.id] as string"
-                                        type="date"
-                                        :min="field.options?.min_date"
-                                        :max="field.options?.max_date"
-                                        :required="field.required"
-                                        :class="errorClass(field.id)"
-                                    />
-
-                                    <Input
-                                        v-else-if="field.type === 'time'"
-                                        :id="`field-${field.id}`"
-                                        v-model="submission.answers[field.id] as string"
-                                        type="time"
-                                        :required="field.required"
-                                        :class="errorClass(field.id)"
-                                    />
-
-                                    <div v-else-if="field.type === 'rating_star'" class="flex items-center gap-1">
-                                        <label
-                                            v-for="star in 6"
-                                            :key="star"
-                                            class="cursor-pointer rounded p-1"
+                                        <Input
+                                            v-if="field.type === 'text'"
+                                            :id="`field-${field.id}`"
+                                            v-model="submission.answers[field.id] as string"
+                                            :maxlength="field.options?.max_length ?? 255"
+                                            :required="field.required"
                                             :class="errorClass(field.id)"
-                                            :aria-label="`${star} / 6`"
-                                        >
-                                            <input
-                                                type="radio"
-                                                :name="`field-${field.id}`"
-                                                :value="String(star)"
-                                                :checked="ratingEquals(field.id, star)"
-                                                :required="field.required"
-                                                class="sr-only"
-                                                @change="setRating(field.id, star)"
-                                            />
-                                            <Star
-                                                class="h-7 w-7 transition-colors"
-                                                :class="ratingAtLeast(field.id, star) ? '' : 'text-muted-foreground/30'"
-                                                :style="ratingAtLeast(field.id, star) ? { color: accent, fill: accent } : {}"
-                                            />
-                                        </label>
-                                    </div>
+                                        />
 
-                                    <div v-else-if="field.type === 'rating_number'" class="flex flex-wrap items-center gap-2">
-                                        <label
-                                            v-for="n in numberRatingScale"
-                                            :key="n"
-                                            class="hover:bg-muted/50 flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border text-sm font-medium transition-colors"
+                                        <textarea
+                                            v-else-if="field.type === 'textarea'"
+                                            :id="`field-${field.id}`"
+                                            v-model="submission.answers[field.id] as string"
+                                            rows="4"
+                                            :maxlength="field.options?.max_length ?? 5000"
+                                            :required="field.required"
+                                            class="border-input bg-background ring-offset-background focus-visible:ring-ring flex w-full rounded-md border px-3 py-2 text-base focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none md:text-sm"
                                             :class="errorClass(field.id)"
-                                            :style="selectedRowStyle(ratingEquals(field.id, n))"
-                                        >
-                                            <input
-                                                type="radio"
-                                                :name="`field-${field.id}`"
-                                                :value="String(n)"
-                                                :checked="ratingEquals(field.id, n)"
-                                                :required="field.required"
-                                                class="sr-only"
-                                                @change="setRating(field.id, n)"
-                                            />
-                                            {{ n }}
-                                        </label>
-                                    </div>
+                                        ></textarea>
 
-                                    <div v-else-if="field.type === 'choice'" class="grid gap-2">
-                                        <label
-                                            v-for="choice in field.options?.choices ?? []"
-                                            :key="choice"
-                                            class="hover:bg-muted/50 flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors"
+                                        <Input
+                                            v-else-if="field.type === 'email'"
+                                            :id="`field-${field.id}`"
+                                            v-model="submission.answers[field.id] as string"
+                                            type="email"
+                                            :required="field.required"
                                             :class="errorClass(field.id)"
-                                            :style="selectedRowStyle(!otherActive[field.id] && submission.answers[field.id] === choice)"
-                                        >
-                                            <input
-                                                type="radio"
-                                                :name="`field-${field.id}`"
-                                                :checked="!otherActive[field.id] && submission.answers[field.id] === choice"
-                                                :required="field.required"
-                                                class="h-4 w-4"
-                                                :style="{ accentColor: accent }"
-                                                @change="selectChoice(field.id, choice)"
-                                            />
-                                            <span class="text-sm">{{ choice }}</span>
-                                        </label>
-                                        <template v-if="field.options?.allow_other">
+                                        />
+
+                                        <Input
+                                            v-else-if="field.type === 'phone'"
+                                            :id="`field-${field.id}`"
+                                            v-model="submission.answers[field.id] as string"
+                                            type="tel"
+                                            inputmode="tel"
+                                            pattern="[0-9+\-\s()]+"
+                                            maxlength="30"
+                                            :required="field.required"
+                                            :class="errorClass(field.id)"
+                                        />
+
+                                        <Input
+                                            v-else-if="field.type === 'number'"
+                                            :id="`field-${field.id}`"
+                                            v-model="submission.answers[field.id] as string"
+                                            type="number"
+                                            :min="field.options?.min"
+                                            :max="field.options?.max"
+                                            :required="field.required"
+                                            :class="errorClass(field.id)"
+                                        />
+
+                                        <Input
+                                            v-else-if="field.type === 'date'"
+                                            :id="`field-${field.id}`"
+                                            v-model="submission.answers[field.id] as string"
+                                            type="date"
+                                            :min="field.options?.min_date"
+                                            :max="field.options?.max_date"
+                                            :required="field.required"
+                                            :class="errorClass(field.id)"
+                                        />
+
+                                        <Input
+                                            v-else-if="field.type === 'time'"
+                                            :id="`field-${field.id}`"
+                                            v-model="submission.answers[field.id] as string"
+                                            type="time"
+                                            :required="field.required"
+                                            :class="errorClass(field.id)"
+                                        />
+
+                                        <div v-else-if="field.type === 'rating_star'" class="flex items-center gap-1">
                                             <label
-                                                class="hover:bg-muted/50 flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors"
-                                                :style="selectedRowStyle(!!otherActive[field.id])"
+                                                v-for="star in 6"
+                                                :key="star"
+                                                class="cursor-pointer rounded p-1"
+                                                :class="errorClass(field.id)"
+                                                :aria-label="`${star} / 6`"
                                             >
                                                 <input
                                                     type="radio"
                                                     :name="`field-${field.id}`"
-                                                    :checked="!!otherActive[field.id]"
+                                                    :value="String(star)"
+                                                    :checked="ratingEquals(field.id, star)"
+                                                    :required="field.required"
+                                                    class="sr-only"
+                                                    @change="setRating(field.id, star)"
+                                                />
+                                                <Star
+                                                    class="h-7 w-7 transition-colors"
+                                                    :class="ratingAtLeast(field.id, star) ? '' : 'text-muted-foreground/30'"
+                                                    :style="ratingAtLeast(field.id, star) ? { color: accent, fill: accent } : {}"
+                                                />
+                                            </label>
+                                        </div>
+
+                                        <div v-else-if="field.type === 'rating_number'" class="flex flex-wrap items-center gap-2">
+                                            <label
+                                                v-for="n in numberRatingScale"
+                                                :key="n"
+                                                class="hover:bg-muted/50 flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border text-sm font-medium transition-colors"
+                                                :class="errorClass(field.id)"
+                                                :style="selectedRowStyle(ratingEquals(field.id, n))"
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    :name="`field-${field.id}`"
+                                                    :value="String(n)"
+                                                    :checked="ratingEquals(field.id, n)"
+                                                    :required="field.required"
+                                                    class="sr-only"
+                                                    @change="setRating(field.id, n)"
+                                                />
+                                                {{ n }}
+                                            </label>
+                                        </div>
+
+                                        <div v-else-if="field.type === 'choice'" class="grid gap-2">
+                                            <label
+                                                v-for="choice in field.options?.choices ?? []"
+                                                :key="choice"
+                                                class="hover:bg-muted/50 flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors"
+                                                :class="errorClass(field.id)"
+                                                :style="selectedRowStyle(!otherActive[field.id] && submission.answers[field.id] === choice)"
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    :name="`field-${field.id}`"
+                                                    :checked="!otherActive[field.id] && submission.answers[field.id] === choice"
+                                                    :required="field.required"
                                                     class="h-4 w-4"
                                                     :style="{ accentColor: accent }"
-                                                    @change="selectOtherChoice(field.id)"
+                                                    @change="selectChoice(field.id, choice)"
                                                 />
-                                                <span class="text-sm">{{ $t('Other') }}</span>
+                                                <span class="text-sm">{{ choice }}</span>
                                             </label>
-                                            <Input
-                                                v-if="otherActive[field.id]"
-                                                v-model="submission.answers[field.id] as string"
-                                                :placeholder="$t('Please specify')"
-                                                :required="field.required"
-                                            />
-                                        </template>
-                                    </div>
+                                            <template v-if="field.options?.allow_other">
+                                                <label
+                                                    class="hover:bg-muted/50 flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors"
+                                                    :style="selectedRowStyle(!!otherActive[field.id])"
+                                                >
+                                                    <input
+                                                        type="radio"
+                                                        :name="`field-${field.id}`"
+                                                        :checked="!!otherActive[field.id]"
+                                                        class="h-4 w-4"
+                                                        :style="{ accentColor: accent }"
+                                                        @change="selectOtherChoice(field.id)"
+                                                    />
+                                                    <span class="text-sm">{{ $t('Other') }}</span>
+                                                </label>
+                                                <Input
+                                                    v-if="otherActive[field.id]"
+                                                    v-model="submission.answers[field.id] as string"
+                                                    :placeholder="$t('Please specify')"
+                                                    :required="field.required"
+                                                />
+                                            </template>
+                                        </div>
 
-                                    <div v-else-if="field.type === 'checkboxes'" class="grid gap-2">
-                                        <label
-                                            v-for="choice in field.options?.choices ?? []"
-                                            :key="choice"
-                                            class="hover:bg-muted/50 flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors"
-                                            :class="errorClass(field.id)"
-                                            :style="selectedRowStyle(isChecked(field.id, choice))"
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                :checked="isChecked(field.id, choice)"
-                                                class="h-4 w-4 rounded"
-                                                :style="{ accentColor: accent }"
-                                                @change="toggleCheckbox(field.id, choice, ($event.target as HTMLInputElement).checked)"
-                                            />
-                                            <span class="text-sm">{{ choice }}</span>
-                                        </label>
-                                        <template v-if="field.options?.allow_other">
+                                        <div v-else-if="field.type === 'checkboxes'" class="grid gap-2">
                                             <label
+                                                v-for="choice in field.options?.choices ?? []"
+                                                :key="choice"
                                                 class="hover:bg-muted/50 flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors"
-                                                :style="selectedRowStyle(!!otherChecked[field.id])"
+                                                :class="errorClass(field.id)"
+                                                :style="selectedRowStyle(isChecked(field.id, choice))"
                                             >
                                                 <input
                                                     type="checkbox"
-                                                    :checked="!!otherChecked[field.id]"
+                                                    :checked="isChecked(field.id, choice)"
                                                     class="h-4 w-4 rounded"
                                                     :style="{ accentColor: accent }"
-                                                    @change="toggleOtherCheckbox(field.id, ($event.target as HTMLInputElement).checked)"
+                                                    @change="toggleCheckbox(field.id, choice, ($event.target as HTMLInputElement).checked)"
                                                 />
-                                                <span class="text-sm">{{ $t('Other') }}</span>
+                                                <span class="text-sm">{{ choice }}</span>
                                             </label>
-                                            <Input
-                                                v-if="otherChecked[field.id]"
-                                                :model-value="otherText[field.id] ?? ''"
-                                                :placeholder="$t('Please specify')"
-                                                @update:model-value="updateOtherCheckboxText(field.id, String($event))"
-                                            />
-                                        </template>
+                                            <template v-if="field.options?.allow_other">
+                                                <label
+                                                    class="hover:bg-muted/50 flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors"
+                                                    :style="selectedRowStyle(!!otherChecked[field.id])"
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        :checked="!!otherChecked[field.id]"
+                                                        class="h-4 w-4 rounded"
+                                                        :style="{ accentColor: accent }"
+                                                        @change="toggleOtherCheckbox(field.id, ($event.target as HTMLInputElement).checked)"
+                                                    />
+                                                    <span class="text-sm">{{ $t('Other') }}</span>
+                                                </label>
+                                                <Input
+                                                    v-if="otherChecked[field.id]"
+                                                    :model-value="otherText[field.id] ?? ''"
+                                                    :placeholder="$t('Please specify')"
+                                                    @update:model-value="updateOtherCheckboxText(field.id, String($event))"
+                                                />
+                                            </template>
+                                        </div>
+
+                                        <select
+                                            v-else-if="field.type === 'dropdown'"
+                                            :id="`field-${field.id}`"
+                                            :value="selectDropdownValue(field.id)"
+                                            :required="field.required"
+                                            class="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-base focus-visible:ring-2 focus-visible:outline-none md:text-sm"
+                                            :class="errorClass(field.id)"
+                                            @change="onDropdownChange(field.id, ($event.target as HTMLSelectElement).value)"
+                                        >
+                                            <option value="" disabled>{{ $t('Select…') }}</option>
+                                            <option v-for="choice in field.options?.choices ?? []" :key="choice" :value="choice">{{ choice }}</option>
+                                            <option v-if="field.options?.allow_other" :value="OTHER_VALUE">{{ $t('Other…') }}</option>
+                                        </select>
+                                        <Input
+                                            v-if="field.type === 'dropdown' && otherActive[field.id]"
+                                            v-model="submission.answers[field.id] as string"
+                                            class="mt-2"
+                                            :placeholder="$t('Please specify')"
+                                            :required="field.required"
+                                        />
+
+                                        <input
+                                            v-else-if="field.type === 'file'"
+                                            :id="`field-${field.id}`"
+                                            type="file"
+                                            :required="field.required"
+                                            class="border-input bg-background flex w-full cursor-pointer rounded-md border px-3 py-2 text-base file:mr-3 file:border-0 file:bg-transparent file:text-sm file:font-medium md:text-sm"
+                                            :class="errorClass(field.id)"
+                                            @change="setFile(field.id, $event)"
+                                        />
+
+                                        <InputError :message="answerError(field.id)" />
                                     </div>
-
-                                    <select
-                                        v-else-if="field.type === 'dropdown'"
-                                        :id="`field-${field.id}`"
-                                        :value="selectDropdownValue(field.id)"
-                                        :required="field.required"
-                                        class="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-base focus-visible:ring-2 focus-visible:outline-none md:text-sm"
-                                        :class="errorClass(field.id)"
-                                        @change="onDropdownChange(field.id, ($event.target as HTMLSelectElement).value)"
-                                    >
-                                        <option value="" disabled>{{ $t('Select…') }}</option>
-                                        <option v-for="choice in field.options?.choices ?? []" :key="choice" :value="choice">{{ choice }}</option>
-                                        <option v-if="field.options?.allow_other" :value="OTHER_VALUE">{{ $t('Other…') }}</option>
-                                    </select>
-                                    <Input
-                                        v-if="field.type === 'dropdown' && otherActive[field.id]"
-                                        v-model="submission.answers[field.id] as string"
-                                        class="mt-2"
-                                        :placeholder="$t('Please specify')"
-                                        :required="field.required"
-                                    />
-
-                                    <input
-                                        v-else-if="field.type === 'file'"
-                                        :id="`field-${field.id}`"
-                                        type="file"
-                                        :required="field.required"
-                                        class="border-input bg-background flex w-full cursor-pointer rounded-md border px-3 py-2 text-base file:mr-3 file:border-0 file:bg-transparent file:text-sm file:font-medium md:text-sm"
-                                        :class="errorClass(field.id)"
-                                        @change="setFile(field.id, $event)"
-                                    />
-
-                                    <InputError :message="answerError(field.id)" />
-                                </div>
+                                </template>
                             </template>
-                        </template>
+                        </div>
                     </div>
-                </div>
+                </template>
 
                 <!-- GDPR consent -->
                 <div
@@ -655,8 +686,7 @@ const submit = () => {
                             {{ $t('I have read and accept the') }}
                             <Link :href="route('terms')" target="_blank" class="underline hover:no-underline">{{ $t('terms of use') }}</Link>
                             {{ $t('and the') }}
-                            <Link :href="route('privacy')" target="_blank" class="underline hover:no-underline">{{ $t('privacy policy') }}</Link
-                            >.
+                            <Link :href="route('privacy')" target="_blank" class="underline hover:no-underline">{{ $t('privacy policy') }}</Link>.
                         </span>
                     </label>
                     <p class="text-muted-foreground mt-3 text-xs">

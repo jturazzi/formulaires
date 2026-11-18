@@ -3,6 +3,8 @@
 use App\Models\Form;
 use App\Models\FormField;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 test('a user can create a form with a default section', function () {
     $user = User::factory()->create();
@@ -319,29 +321,29 @@ test('the slug must only contain lowercase letters, numbers and hyphens', functi
 });
 
 test('a logo upload is persisted on the form and shown in its public url', function () {
-    Illuminate\Support\Facades\Storage::fake('public');
+    Storage::fake('public');
 
     $user = User::factory()->create();
     $form = Form::factory()->for($user)->create();
 
     $this->actingAs($user)->post(route('forms.logo.upload', $form), [
-        'logo' => Illuminate\Http\UploadedFile::fake()->image('logo.png'),
+        'logo' => UploadedFile::fake()->image('logo.png'),
     ])->assertRedirect();
 
     $form->refresh();
 
     expect($form->logo_path)->not->toBeNull();
-    Illuminate\Support\Facades\Storage::disk('public')->assertExists($form->logo_path);
+    Storage::disk('public')->assertExists($form->logo_path);
 });
 
 test('removing a logo clears it from the form and disk', function () {
-    Illuminate\Support\Facades\Storage::fake('public');
+    Storage::fake('public');
 
     $user = User::factory()->create();
     $form = Form::factory()->for($user)->create();
 
     $this->actingAs($user)->post(route('forms.logo.upload', $form), [
-        'logo' => Illuminate\Http\UploadedFile::fake()->image('logo.png'),
+        'logo' => UploadedFile::fake()->image('logo.png'),
     ]);
 
     $path = $form->fresh()->logo_path;
@@ -349,7 +351,7 @@ test('removing a logo clears it from the form and disk', function () {
     $this->actingAs($user)->delete(route('forms.logo.delete', $form))->assertRedirect();
 
     expect($form->fresh()->logo_path)->toBeNull();
-    Illuminate\Support\Facades\Storage::disk('public')->assertMissing($path);
+    Storage::disk('public')->assertMissing($path);
 });
 
 test('duplicating a form copies its structure as a draft', function () {
@@ -367,4 +369,61 @@ test('duplicating a form copies its structure as a draft', function () {
         ->and($copy->slug)->not->toBe($form->slug)
         ->and($copy->fields)->toHaveCount(2)
         ->and($copy->sections)->toHaveCount(1);
+});
+
+test('the builder saves a section visibility condition and prunes one on its own fields', function () {
+    $user = User::factory()->create();
+    $form = Form::factory()->for($user)->create();
+    $first = $form->sections()->create(['position' => 0]);
+    $second = $form->sections()->create(['position' => 1]);
+    $trigger = FormField::factory()->for($form)->type('choice')->create([
+        'form_section_id' => $first->id,
+        'options' => ['choices' => ['Oui', 'Non']],
+    ]);
+    $inner = FormField::factory()->for($form)->create(['form_section_id' => $second->id]);
+
+    $condition = fn (int $fieldId) => [
+        'mode' => 'visible_if',
+        'logic' => 'all',
+        'conditions' => [['field_id' => $fieldId, 'operator' => 'not_empty', 'value' => null]],
+    ];
+
+    $this->actingAs($user)
+        ->put(route('forms.structure.update', $form), [
+            'sections' => [
+                [
+                    'id' => $first->id,
+                    // Depends on its own question: can never be satisfied once hidden.
+                    'visibility' => $condition($trigger->id),
+                    'fields' => [['id' => $trigger->id, 'type' => 'choice', 'label' => 'Q', 'options' => ['choices' => ['Oui', 'Non']]]],
+                ],
+                [
+                    'id' => $second->id,
+                    'visibility' => $condition($trigger->id),
+                    'fields' => [['id' => $inner->id, 'type' => 'text', 'label' => 'R']],
+                ],
+            ],
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect($first->fresh()->visibility)->toBeNull()
+        ->and($second->fresh()->visibility['conditions'][0]['field_id'])->toBe($trigger->id);
+});
+
+test('duplicating a form remaps section visibility conditions', function () {
+    $user = User::factory()->create();
+    $form = Form::factory()->for($user)->create();
+    $first = $form->sections()->create(['position' => 0]);
+    $trigger = FormField::factory()->for($form)->create(['form_section_id' => $first->id]);
+    $form->sections()->create([
+        'position' => 1,
+        'visibility' => ['mode' => 'hidden_if', 'logic' => 'all', 'conditions' => [['field_id' => $trigger->id, 'operator' => 'empty']]],
+    ]);
+
+    $this->actingAs($user)->post(route('forms.duplicate', $form));
+
+    $copy = Form::query()->latest('id')->first();
+    $copiedTrigger = $copy->fields()->first();
+
+    expect($copy->sections()->where('position', 1)->first()->visibility['conditions'][0]['field_id'])->toBe($copiedTrigger->id);
 });
